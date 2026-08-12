@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📡 Tools Cek Nomor & Lacak Lokasi — Satu File</title>
+<style>
+  :root{
+    --bg:#000502; --card:#02130a; --card2:#041d0e; --line:#0e4424;
+    --txt:#c6ffd9; --mut:#3fa066; --acc:#00ff66; --ok:#00ff66; --warn:#ffb000; --bad:#ff4d5e;
+    --glow:0 0 12px rgba(0,255,102,.25);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{min-height:100%;}
+  body{
+    font-family:'Consolas','Courier New',Menlo,monospace;
+    background:
+      radial-gradient(900px 500px at 75% -10%, rgba(0,120,60,.14) 0%, transparent 60%),
+      radial-gradient(700px 500px at 10% 110%, rgba(0,80,50,.10) 0%, transparent 60%),
+      #000502;
+    color:var(--txt); min-height:100vh; padding:24px 14px 60px; overflow-x:hidden;
+  }
+  /* MATRIX RAIN */
+  #matrixCanvas{position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; opacity:.32; pointer-events:none;}
+  /* SCANLINE CRT */
+  .scanlines{
+    position:fixed; inset:0; z-index:6; pointer-events:none; opacity:.4;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px);
+  }
+  .wrap{max-width:920px; margin:0 auto; position:relative; z-index:1;}
+  header{text-align:center; margin-bottom:18px; position:relative;}
+  header .sysbar{
+    display:inline-flex; align-items:center; gap:9px; margin-bottom:12px;
+    border:1px solid var(--line); background:rgba(2,19,10,.8); border-radius:6px;
+    padding:6px 16px; font-size:11.5px; letter-spacing:2px; color:var(--mut);
+    box-shadow:inset 0 0 18px rgba(0,255,102,.05);
+  }
+  .sys-dot{width:8px; height:8px; border-radius:50%; background:var(--ok); box-shadow:0 0 10px var(--ok); animation:pulse 1.6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;} 50%{opacity:.35;}}
+  header h1{
+    font-size:24px; letter-spacing:1px; color:var(--ok);
+    text-shadow:0 0 14px rgba(0,255,102,.55), 0 0 40px rgba(0,255,102,.25);
+  }
+  header h1::before{content:">_ "; color:var(--mut);}
+  header p{color:var(--mut); font-size:12.5px; margin-top:7px; letter-spacing:.4px;}
+  .cursor{display:inline-block; width:9px; height:14px; background:var(--ok); vertical-align:-2px; margin-left:4px; animation:blink 1s steps(1) infinite; box-shadow:0 0 8px var(--ok);}
+  @keyframes blink{50%{opacity:0;}}
+
+  .tabs{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:18px;}
+  .tab{
+    background:rgba(2,19,10,.85); border:1px solid var(--line); color:var(--mut);
+    border-radius:6px; padding:10px 20px; font-size:13.5px; font-weight:700; cursor:pointer; transition:.15s;
+    letter-spacing:.5px; font-family:inherit;
+  }
+  .tab:hover{border-color:var(--ok); color:var(--txt); box-shadow:var(--glow), inset 0 0 12px rgba(0,255,102,.06);}
+  .tab.active{
+    background:var(--ok); color:#001a0b; border-color:var(--ok);
+    box-shadow:0 0 18px rgba(0,255,102,.45);
+  }
+
+  .panel{
+    background:rgba(2,19,10,.9); border:1px solid var(--line); border-radius:8px;
+    padding:20px; margin-bottom:16px;
+    box-shadow:inset 0 0 30px rgba(0,255,102,.035), 0 8px 26px rgba(0,0,0,.55);
+  }
+  .panel h2{
+    font-size:14.5px; margin-bottom:14px; display:flex; align-items:center; gap:8px;
+    color:var(--ok); letter-spacing:.6px;
+  }
+  .panel h2::before{content:"$ "; color:var(--mut);}
+  .page{display:none;}
+  .page.show{display:block; animation:fade .3s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;}}
+
+  label{display:block; font-size:11.5px; color:var(--mut); margin:12px 0 6px; letter-spacing:.8px; text-transform:uppercase;}
+  input{
+    width:100%; background:#010a05; border:1px solid var(--line); color:var(--txt);
+    border-radius:6px; padding:13px 15px; font-size:14px; outline:none; transition:.2s;
+    font-family:inherit;
+  }
+  input:focus{border-color:var(--ok); box-shadow:0 0 0 2px rgba(0,255,102,.15), var(--glow);}
+  .input-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .input-row input{flex:1 1 240px;}
+  button{
+    background:transparent; color:var(--ok); border:1px solid var(--ok); cursor:pointer;
+    border-radius:6px; padding:13px 24px; font-size:13.5px; font-weight:700; transition:.15s;
+    font-family:inherit; letter-spacing:.5px;
+  }
+  button:hover{background:var(--ok); color:#001a0b; box-shadow:0 0 18px rgba(0,255,102,.4);}
+  button.green{background:var(--ok); color:#001a0b; border-color:var(--ok);}
+  button.green:hover{filter:brightness(1.15); box-shadow:0 0 22px rgba(0,255,102,.5);}
+  button.ghost{background:transparent; border:1px solid var(--line); color:var(--mut);}
+  button.ghost:hover{color:var(--ok); border-color:var(--ok);}
+  button.mini{background:transparent; border:1px solid var(--line); color:var(--mut); padding:6px 12px; font-size:11.5px; border-radius:5px; margin:6px 6px 0 0;}
+  button.mini:hover{background:rgba(0,255,102,.1); border-color:var(--ok); color:var(--ok);}
+  .hint{color:var(--mut); font-size:12px; margin-top:9px;}
+
+  .err{display:none; margin-top:14px; background:rgba(255,77,94,.08); border:1px solid rgba(255,77,94,.45); color:#ff9aa5; padding:12px 14px; border-radius:6px; font-size:13px; line-height:1.6;}
+  .err.show{display:block;}
+  .warn-box{background:rgba(255,176,0,.06); border:1px solid rgba(255,176,0,.35); border-radius:6px; padding:13px 15px; font-size:12.5px; color:#ffd27a; line-height:1.65; margin-top:14px;}
+  .okbox{background:rgba(0,255,102,.08); border:1px solid rgba(0,255,102,.4); color:#8dffb8; border-radius:6px; padding:13px 15px; font-size:13px; line-height:1.65; margin-top:14px; display:none;}
+
+  .linkbox{margin-top:16px; background:#010a05; border:1px solid var(--line); border-radius:6px; padding:14px;}
+  .mono{font-family:inherit; font-size:12.5px; color:var(--ok); word-break:break-all; line-height:1.6;}
+  .mini{color:var(--mut); font-size:12px;}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-top:14px;}
+  .cell{background:#010a05; border:1px solid var(--line); border-radius:6px; padding:13px 15px; position:relative;}
+  .cell .k{font-size:10.5px; color:var(--mut); text-transform:uppercase; letter-spacing:1.4px; margin-bottom:6px;}
+  .cell .v{font-size:13.5px; font-weight:700; line-height:1.45; word-break:break-word; color:var(--txt);}
+  .cell .v small{font-weight:400; color:var(--mut); font-size:11.5px;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px; margin-top:8px;}
+  th{color:var(--ok); font-size:10px; text-transform:uppercase; letter-spacing:1.4px; text-align:left; padding:8px; border-bottom:1px solid var(--line);}
+  td{padding:11px 8px; border-bottom:1px solid rgba(14,68,36,.6); vertical-align:top; line-height:1.5;}
+  tr:hover td{background:rgba(0,255,102,.05);}
+  .badge{display:inline-block; border-radius:4px; padding:3px 10px; font-size:11px; font-weight:700; white-space:nowrap; letter-spacing:.6px;}
+  .b-mut{background:rgba(63,160,102,.12); color:var(--mut); border:1px solid rgba(63,160,102,.3);}
+  .b-warn{background:rgba(255,176,0,.1); color:var(--warn); border:1px solid rgba(255,176,0,.35);}
+  .b-ok{background:rgba(0,255,102,.1); color:var(--ok); border:1px solid rgba(0,255,102,.4);}
+  .map-link{color:var(--ok); text-decoration:none; font-weight:700;}
+  .map-link:hover{text-decoration:underline; text-shadow:0 0 8px rgba(0,255,102,.5);}
+  .empty{color:var(--mut); font-size:12.5px; text-align:center; padding:26px 0;}
+  .flash{animation:fl 1s ease;}
+  @keyframes fl{0%{background:rgba(0,255,102,.22);}100%{background:transparent;}}
+
+  .steps{display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 10px;}
+  .step{flex:1 1 150px; background:#010a05; border:1px solid var(--line); border-radius:6px; padding:11px 13px; font-size:11.5px; color:var(--mut); line-height:1.55;}
+  .step b{color:var(--ok); display:block; margin-bottom:3px; font-size:12px; letter-spacing:.5px;}
+
+  #mapBox{margin-top:14px; border-radius:6px; overflow:hidden; border:1px solid var(--line); display:none;}
+  #mapBox iframe{display:block; width:100%; height:250px; border:0; filter:saturate(.8) contrast(1.05);}
+  .conn{display:inline-flex; align-items:center; gap:7px; background:#010a05; border:1px solid var(--line); border-radius:999px; padding:6px 14px; font-size:11.5px; color:var(--mut); letter-spacing:.5px;}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px var(--ok); animation:pulse 2s infinite;}
+  .dot.wait{background:var(--warn); box-shadow:0 0 8px var(--warn);}
+  .statbar{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  footer{color:var(--mut); font-size:11.5px; text-align:center; line-height:1.8; margin-top:18px; letter-spacing:.3px;}
+  footer a{color:var(--ok);}
+  details.ref{margin-top:12px;}
+  details.ref summary{cursor:pointer; font-size:12.5px; color:var(--ok); font-weight:700; letter-spacing:.5px;}
+  details.ref summary:hover{text-shadow:0 0 8px rgba(0,255,102,.5);}
+  details.ref table{font-size:11.5px;}
+
+  /* ===== Modal Masukkan PIN ===== */
+  .pin-overlay{
+    position:fixed; inset:0; background:rgba(0,3,1,.9);
+    backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+    z-index:50; display:none; align-items:center; justify-content:center; padding:20px;
+  }
+  .pin-box{
+    background:#02130a; border:1px solid var(--ok); border-radius:8px;
+    max-width:370px; width:100%; padding:30px 26px;
+    box-shadow:0 0 30px rgba(0,255,102,.25), inset 0 0 40px rgba(0,255,102,.04);
+    animation:pinIn .28s ease;
+  }
+  @keyframes pinIn{from{opacity:0; transform:translateY(16px) scale(.96);} to{opacity:1; transform:none;}}
+  .pin-box.shake{animation:pinShake .45s ease;}
+  @keyframes pinShake{
+    0%,100%{transform:translateX(0);} 20%{transform:translateX(-10px);}
+    40%{transform:translateX(10px);} 60%{transform:translateX(-6px);} 80%{transform:translateX(6px);}
+  }
+  .pin-ico{
+    width:60px; height:60px; margin:0 auto 14px; border-radius:8px;
+    background:rgba(0,255,102,.1); border:1px solid var(--ok);
+    display:flex; align-items:center; justify-content:center; font-size:26px;
+    box-shadow:0 0 24px rgba(0,255,102,.35);
+  }
+  .pin-title{font-size:16px; font-weight:700; text-align:center; color:var(--ok); letter-spacing:1px; text-shadow:0 0 10px rgba(0,255,102,.4);}
+  .pin-sub{color:var(--mut); font-size:12px; text-align:center; margin:7px 0 18px; line-height:1.6;}
+  .pin-input{
+    width:100%; background:#010a05; border:1px solid var(--line); color:var(--ok);
+    border-radius:6px; padding:14px 16px; font-size:22px; letter-spacing:10px; text-align:center;
+    outline:none; transition:.2s; font-family:inherit;
+  }
+  .pin-input:focus{border-color:var(--ok); box-shadow:0 0 0 2px rgba(0,255,102,.15), var(--glow);}
+  .pin-err{
+    display:none; background:rgba(255,77,94,.08); border:1px solid rgba(255,77,94,.45);
+    color:#ff9aa5; border-radius:6px; padding:9px 12px; font-size:12px; margin-top:10px; text-align:center;
+  }
+  .pin-row{display:flex; gap:10px; margin-top:16px;}
+  .pin-row button{flex:1; border-radius:6px; padding:13px; font-size:13px; font-weight:700; cursor:pointer; transition:.15s; font-family:inherit;}
+  .pin-btn{background:var(--ok); color:#001a0b; border:1px solid var(--ok);}
+  .pin-btn:hover{filter:brightness(1.15); box-shadow:0 0 20px rgba(0,255,102,.5);}
+  .pin-cancel{background:transparent; border:1px solid var(--line); color:var(--mut);}
+  .pin-cancel:hover{color:var(--ok); border-color:var(--ok);}
+  .pin-foot{color:var(--mut); font-size:10.5px; text-align:center; margin-top:14px; line-height:1.6; letter-spacing:.4px;}
+</style>
+</head>
+<body>
+<canvas id="matrixCanvas"></canvas>
+<div class="scanlines"></div>
+<div class="wrap">
+
+  <header>
+    <div class="sysbar"><span class="sys-dot"></span> SECURE TERMINAL // v6.0</div>
+    <h1>Tools Cek Nomor &amp; Lacak Lokasi</h1>
+    <p>CEK NOMOR · MINTA LOKASI · CEK FOTO · SCAN WEBSITE · DASHBOARD ADMIN<span class="cursor"></span></p>
+  </header>
+
+  <!-- ==================== NAV TAB ==================== -->
+  <div class="tabs">
+    <div class="tab active" id="tabBtn0" onclick="showTab(0)">📱 Cek Nomor</div>
+    <div class="tab" id="tabBtn1" onclick="showTab(1)">📍 Minta Lokasi</div>
+    <div class="tab" id="tabBtn2" onclick="showTab(2)">📷 Cek Foto</div>
+    <div class="tab" id="tabBtn4" onclick="showTab(4)">🌐 Scan Website</div>
+    <div class="tab" id="tabBtn3" onclick="showTab(3)">🛡️ Admin</div>
+  </div>
+
+  <!-- ==================== TAB 0: CEK NOMOR ==================== -->
+  <div class="page show" id="page0">
+    <div class="panel">
+      <h2>🔎 Cek Nomor HP / Telepon Rumah</h2>
+      <div class="input-row">
+        <input id="cnNum" type="text" inputmode="tel" placeholder="contoh: 0812 3456 7890 atau 021-1234567" autocomplete="off">
+        <button onclick="cnCek()">Cek</button>
+      </div>
+      <div class="hint">Format bebas: <b class="mono">08xxxxxxxxxx</b> (HP) / <b class="mono">021-1234567</b> (telepon rumah) / <b class="mono">+62…</b></div>
+      <div class="err" id="cnErr"></div>
+    </div>
+    <div id="cnRes" style="display:none">
+      <div class="panel">
+        <div class="grid">
+          <div class="cell"><div class="k">Nomor</div><div class="v mono" id="cnNumOut">—</div></div>
+          <div class="cell"><div class="k">Operator / Jenis</div><div class="v" id="cnOp">—</div></div>
+          <div class="cell"><div class="k">Kartu / Merek</div><div class="v" id="cnBrand">—</div></div>
+          <div class="cell"><div class="k">Jaringan</div><div class="v" id="cnNet">—</div></div>
+          <div class="cell"><div class="k">Cek Kuota</div><div class="v mono" id="cnUssd">—</div></div>
+          <div class="cell"><div class="k">CS / Aplikasi</div><div class="v" id="cnCs">—</div></div>
+          <div class="cell"><div class="k">📍 Wilayah Asal (historis)</div><div class="v" id="cnWil">—</div></div>
+          <div class="cell"><div class="k">Kode Area Rumah</div><div class="v" id="cnArea">—</div></div>
+        </div>
+        <div class="warn-box" id="cnWarn"></div>
+        <details class="ref">
+          <summary>Tabel prefix operator (klik)</summary>
+          <table>
+            <tr><th>Operator</th><th>Prefix</th></tr>
+            <tr><td>Telkomsel</td><td class="mono">0811 0812 0813 0821 0822 0823 0851 0852 0853</td></tr>
+            <tr><td>Indosat (IM3)</td><td class="mono">0814 0815 0816 0855 0856 0857 0858</td></tr>
+            <tr><td>XL</td><td class="mono">0817 0818 0819 0859 0877 0878</td></tr>
+            <tr><td>AXIS (grup XL)</td><td class="mono">0831 0832 0833 0838</td></tr>
+            <tr><td>Tri (3) — grup IOH</td><td class="mono">0895 0896 0897 0898 0899</td></tr>
+            <tr><td>Smartfren</td><td class="mono">0881–0889</td></tr>
+          </table>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 1: MINTA LOKASI ==================== -->
+  <div class="page" id="page1">
+    <div class="panel">
+      <h2>🔗 Buat Link Minta Lokasi (terlacak)</h2>
+      <div class="steps">
+        <div class="step"><b>1. Buat link</b>Isi nama, lalu klik buat link.</div>
+        <div class="step"><b>2. Kirim via WA</b>Link dikirim ke orangnya.</div>
+        <div class="step"><b>3. Pantau di tab Admin</b>Begitu dia klik, langsung terlacak otomatis.</div>
+      </div>
+      <label>Nama kamu (terlihat oleh penerima):</label>
+      <input id="gName" type="text" placeholder="misal: Budi" autocomplete="off">
+      <label>Nomor WhatsApp kamu — tombol kirim balik (opsional):</label>
+      <input id="gWA" type="text" inputmode="tel" placeholder="misal: 081234567890" autocomplete="off">
+      <label>Pesan (opsional):</label>
+      <input id="gMsg" type="text" placeholder="misal: Konfirmasi lokasi buat kirim paket ya" autocomplete="off">
+      <button class="green" onclick="gCreate()" style="margin-top:16px; width:100%;">🔗 Buat Link & Mulai Lacak</button>
+      <div class="mini" id="gMode" style="display:none; margin-top:10px; line-height:1.6;"></div>
+      <div class="err" id="gErr"></div>
+      <div class="linkbox" id="gOut" style="display:none">
+        <div style="font-size:11px; color:var(--mut); letter-spacing:1px; text-transform:uppercase; margin-bottom:6px;">LINK LACAK — kirim ke target</div>
+        <input id="gLinkTxt" type="text" readonly onclick="this.select(); this.setSelectionRange(0, this.value.length);" style="width:100%; background:#000; border:1px solid var(--line); color:var(--ok); border-radius:6px; padding:11px 12px; font-size:12.5px; font-family:inherit; outline:none;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="mini" onclick="gCopy()" style="margin:0;">📋 Salin</button>
+          <button class="mini" onclick="gShare()" style="margin:0;">📱 Bagikan…</button>
+          <button class="mini" onclick="gWA()" style="margin:0;">💬 WhatsApp</button>
+        </div>
+        <div id="gShareMsg" class="mini" style="margin-top:8px; color:var(--ok);"></div>
+        <div class="mini" style="margin-top:10px;">Statusnya otomatis muncul di tab <b>🛡️ Admin</b> (biarkan halaman ini terbuka).</div>
+      </div>
+      <div class="linkbox" id="gLive" style="display:none;">
+        <div style="font-size:13px; font-weight:700; color:var(--txt); margin-bottom:6px;">📡 Status link terakhir (update otomatis)</div>
+        <div id="gLiveBody">—</div>
+      </div>
+      <div class="warn-box">
+        <b>⚡ Lacak otomatis:</b> begitu orang itu <b>membuka link</b>, kamu langsung tahu: waktu dibuka, perangkat/spek yang dipakai, dan <b>perkiraan lokasi dari IP-nya</b> (level kota) — semua tanpa perlu izin apa pun.
+        Lokasi GPS presisi tetap butuh persetujuannya (pop-up browser). Lacak tanpa izin melanggar UU ITE — gunakan untuk hal sah.
+        <br><b>📸 Kamera:</b> di halaman penerima ada tombol <b>"Izinkan Sekali Ketuk — Kirim Lokasi + Foto Otomatis"</b>. Satu ketukan → dua pop-up izin browser (wajib, kamera tidak bisa menyala tanpa itu) → <b>otomatis</b>: foto diambil dalam 3 detik + lokasi GPS dikirim bersama, tanpa langkah terpisah. Foto tampil di dashboard Admin.
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 2: CEK FOTO (EXIF) ==================== -->
+  <div class="page" id="page2">
+    <div class="panel">
+      <h2>📷 Cek Foto — Baca Data EXIF (metadata asli, belum terenkripsi)</h2>
+      <p class="mini" style="line-height:1.7;">Upload foto (JPEG) — langsung dibaca <b>di perangkatmu</b>, foto tidak diunggah ke mana pun. EXIF adalah metadata <b>teks biasa (tidak terenkripsi)</b> yang disisipkan kamera saat foto diambil: kapan diambil, pakai kamera apa, setting apa, dan <b>lokasi GPS</b> (jika GPS kamera aktif).</p>
+      <input type="file" id="phInput" accept="image/jpeg,image/jpg,image/png" style="margin-top:14px; width:100%; background:var(--card2); border:1px solid var(--line); border-radius:12px; padding:12px; color:var(--mut);">
+      <div class="err" id="phErr"></div>
+    </div>
+    <div id="phRes" style="display:none">
+      <div class="panel">
+        <img id="phPreview" alt="Preview foto" style="display:block; max-width:260px; max-height:200px; border-radius:12px; border:1px solid var(--line); margin:0 auto 14px;">
+        <div class="grid">
+          <div class="cell"><div class="k">📅 Waktu Diambil</div><div class="v" id="phDate">—</div></div>
+          <div class="cell"><div class="k">📷 Kamera</div><div class="v" id="phCam">—</div></div>
+          <div class="cell"><div class="k">🛠️ Software / Setting</div><div class="v" id="phSw">—</div></div>
+          <div class="cell"><div class="k">📍 Data GPS</div><div class="v" id="phGps">—</div></div>
+          <div class="cell"><div class="k">🧭 Koordinat</div><div class="v mono" id="phCoord">—</div></div>
+          <div class="cell"><div class="k">🔢 Orientasi</div><div class="v" id="phOrient">—</div></div>
+        </div>
+        <div id="phMapBox" style="margin-top:14px; border-radius:14px; overflow:hidden; border:1px solid var(--line); display:none;"><iframe id="phMap" title="Peta lokasi foto" style="width:100%; height:250px; border:0;"></iframe></div>
+        <div class="warn-box" id="phWarn"></div>
+        <details class="ref" style="margin-top:12px;">
+          <summary>🔬 Lihat data mentah EXIF (raw)</summary>
+          <pre id="phRaw" class="mono" style="font-size:11.5px; color:var(--mut); white-space:pre-wrap; line-height:1.6; margin-top:8px;"></pre>
+        </details>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 4: SCAN WEBSITE ==================== -->
+  <div class="page" id="page4">
+    <div class="panel">
+      <h2>🌐 Scan Keamanan Website (pasif — hanya baca konfigurasi)</h2>
+      <p class="mini" style="line-height:1.7;">Tempel URL situs, lalu scan. Tools memeriksa <b>konfigurasi keamanan</b> situs: HTTPS/TLS, header keamanan (HSTS, CSP, X-Frame-Options, dll.), keamanan cookie, kebocoran informasi server, dan waktu respons. <b>Tidak mengirim payload serangan</b> (tanpa injeksi SQL/XSS) — murni pemeriksaan pasif seperti yang dilakukan auditor keamanan.</p>
+      <div class="input-row" style="margin-top:14px;">
+        <input id="scUrl" type="text" placeholder="contoh: https://contoh.com" autocomplete="off" style="flex:1 1 300px;">
+        <button onclick="scanGo()">🔍 Scan</button>
+      </div>
+      <div class="err" id="scErr"></div>
+      <div id="scLoading" style="display:none; margin-top:14px; font-size:13.5px; color:var(--mut);">⏳ Men-scan <span class="mono" id="scLoadingUrl"></span> — bisa butuh beberapa detik…</div>
+    </div>
+    <div id="scRes" style="display:none">
+      <div class="panel">
+        <div class="statbar">
+          <div class="mini" id="scMeta"></div>
+        </div>
+        <div id="scFindings"></div>
+        <details class="ref" style="margin-top:14px;">
+          <summary>📋 Lihat header respons (mentah)</summary>
+          <div id="scHeaders" class="mono" style="font-size:11.5px; color:var(--mut); white-space:pre-wrap; line-height:1.6; margin-top:8px;"></div>
+        </details>
+      </div>
+      <div class="warn-box" id="scWarn" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ==================== TAB 3: ADMIN ==================== -->
+  <div class="page" id="page3">
+    <div class="panel">
+      <h2>🛡️ Dashboard Admin — Status Link</h2>
+      <div class="statbar">
+        <div class="conn"><span class="dot" id="adDot"></span><span id="adConn">menghubungkan…</span></div>
+        <div class="mini" id="adBidInfo"></div>
+      </div>
+      <div id="adNeedBid" style="display:none;">
+        <label>Belum ada data di perangkat ini. Tempel ID penyimpanan dari link yang pernah dibuat (bagian <b>bid=</b>…):</label>
+        <div class="input-row">
+          <input id="adBidInput" type="text" placeholder="misal: 019ff1c1-…">
+          <button class="ghost" onclick="adLoadBid()">Muat</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Status</th><th>Untuk</th><th>Dibuat</th><th>Aktivitas</th><th>Perangkat</th><th>Lokasi</th><th>Aksi</th></tr></thead>
+          <tbody id="adTbody"></tbody>
+        </table>
+        <div class="empty" id="adEmpty">Belum ada link. Buat link di tab 📍 Minta Lokasi.</div>
+      </div>
+      <div class="warn-box" id="adWarn" style="display:none;"></div>
+      <div class="mini" style="margin-top:12px;">
+        ℹ️ Data disimpan di <b>server tools ini</b> (file lokasi-data.json — tersimpan permanen). Jika server tidak tersedia, otomatis beralih ke cloud cadangan (jsonblob.com). Halaman admin me-refresh saat tab ini terbuka (tiap 10 detik).
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    &gt;_ SISTEM AKTIF // build v6.0 — GPS &amp; kamera butuh HTTPS &amp; browser biasa.<br>
+    gunakan dengan bijak &amp; dengan persetujuan. [ ENKRIPSI: N/A // LOG: TERCATAT ]
+  </footer>
+</div>
+
+<!-- ==================== VIEW PENERIMA (dibuka via link ?id=) ==================== -->
+<div class="wrap" id="recvView" style="display:none;">
+  <header>
+    <h1>📍 Konfirmasi Lokasi</h1>
+    <p id="recvWho">Seseorang memintamu mengirim lokasi.</p>
+  </header>
+  <div class="panel">
+    <div id="recvAsk">
+      <p class="mini" id="recvMsg" style="font-size:13.5px; line-height:1.7;">Klik tombol di bawah untuk mengirim lokasimu.</p>
+      <button class="green" id="recvBtnAll" onclick="recvStartAll()" style="width:100%; margin-top:12px;">📸✅ Izinkan Sekali Ketuk — Kirim Lokasi + Foto Otomatis</button>
+      <button class="ghost" id="recvBtnLoc" onclick="recvGetLoc()" style="display:block; width:100%; margin-top:10px;">📍 Kirim Lokasi Saja (tanpa kamera)</button>
+      <button class="ghost" id="recvBtnIP" onclick="recvIP()" style="display:none; width:100%; margin-top:10px;">🌐 Kirim Perkiraan Lokasi (via IP — akurasi rendah)</button>
+      <div class="err" id="recvErr"></div>
+      <div class="warn-box" id="recvNote" style="display:none;"></div>
+    </div>
+    <div id="recvCamArea" style="display:none; margin-top:14px;">
+      <video id="camVideo" playsinline autoplay muted style="width:100%; border-radius:12px; border:1px solid var(--line); background:#000;"></video>
+      <div id="camCount" class="mini" style="text-align:center; font-size:15px; font-weight:700; color:var(--acc); margin-top:8px;"></div>
+      <canvas id="camCanvas" style="display:none;"></canvas>
+      <img id="camShot" alt="Hasil foto" style="display:none; width:100%; border-radius:12px; border:1px solid var(--line); margin-top:10px;">
+      <button class="ghost" id="camCancelBtn" onclick="camCancel()" style="width:100%; margin-top:10px;">🚫 Batal</button>
+      <div class="mini" style="margin-top:8px;">Dengan menekan tombol izin tadi, kamu setuju foto diambil & dikirim <b>otomatis dalam 3 detik</b>. Tekan Batal untuk membatalkan. (Browser mewajibkan pop-up izin sekali — kamera tidak bisa menyala tanpa persetujuanmu.)</div>
+    </div>
+    <div id="recvRes" style="display:none;">
+      <div class="grid">
+        <div class="cell"><div class="k">Koordinat</div><div class="v mono" id="recvLat">—</div></div>
+        <div class="cell"><div class="k">Akurasi</div><div class="v" id="recvAcc">—</div></div>
+        <div class="cell"><div class="k">Alamat Perkiraan</div><div class="v" id="recvAddr">—</div></div>
+      </div>
+      <div id="mapBox"><iframe id="recvMap" title="Peta lokasi"></iframe></div>
+      <div class="okbox" id="recvSent">✅ Lokasimu sudah terkirim. Terima kasih!</div>
+    </div>
+  </div>
+  <footer>Kirim hanya jika kamu memang mau membagikan lokasimu. 🔒</footer>
+</div>
+
+<!-- ==================== MODAL MASUKKAN PIN ==================== -->
+<div class="pin-overlay" id="pinModal">
+  <div class="pin-box" id="pinBox">
+    <div class="pin-ico">🔒</div>
+    <div class="pin-title">Dashboard Admin</div>
+    <div class="pin-sub">Masukkan PIN untuk membuka status link, lokasi, dan aktivitas.</div>
+    <input class="pin-input" id="pinInput" type="password" inputmode="numeric" maxlength="8" placeholder="••••" autocomplete="off">
+    <div class="pin-err" id="pinErr">⚠️ PIN salah — coba lagi.</div>
+    <div class="pin-row">
+      <button class="pin-cancel" onclick="pinClose()">Batal</button>
+      <button class="pin-btn" onclick="pinSubmit()">🔓 Buka Dashboard</button>
+    </div>
+    <div class="pin-foot">PIN bisa diganti di bagian <b>ADMIN_PIN</b> pada file ini.</div>
+  </div>
+</div>
+
+<script>
+/* =====================================================================
+   KONFIGURASI — ganti PIN admin di sini (bebas, misal 4 angka)
+===================================================================== */
+const ADMIN_PIN = '1234';
+/* ===================================================================== */
+
+const $ = id => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+/* Akses storage yang AMAN — tidak pernah mematikan script walau diblokir (iframe sandbox) */
+function lget(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function lset(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function sget(k){ try{ return sessionStorage.getItem(k); }catch(e){ return null; } }
+function sset(k,v){ try{ sessionStorage.setItem(k,v); }catch(e){} }
+/* Cadangan di memori — dipakai kalau localStorage diblokir total (iframe sandbox) */
+let MEM_BID = '', MEM_DATA = null;
+function setBid(v){ MEM_BID = v; try{ localStorage.setItem('bid', v); }catch(e){} }
+function bidLocal(){ return lget('bid') || MEM_BID || ''; }
+
+/* ====================== NAVIGASI TAB ====================== */
+let curTab = 0;
+function showTab(i){
+  curTab = i;
+  for(let k=0;k<5;k++){
+    $('page'+k).classList.toggle('show', k===i);
+    $('tabBtn'+k).classList.toggle('active', k===i);
+  }
+  if(i===3) adRefresh();
+}
+
+/* ====================== PENYIMPANAN CLOUD (jsonblob + proxy server) ====================== */
+const BLOB_API = 'https://jsonblob.com/api/jsonBlob';
+let CACHE = { links: [] };
+
+
+
+
+function bidUrl(){ return q.get('bid') || ''; }
+function getBid(){ return bidLocal() || bidUrl(); }
+
+async function apiJson(url, opt){
+  for(let i=0; i<3; i++){
+    try{
+      const r = await fetch(url, opt);
+      if(r.status === 404) return null;
+      const t = await r.text();
+      try{
+        const j = JSON.parse(t);
+        if(j && j.code === 'rate_limit'){ await new Promise(r2 => setTimeout(r2, Math.min(j.retryAfterSeconds || 60, 60) * 1000)); continue; }
+        return j;
+      }catch(e){ return null; }
+    }catch(e){}
+    await new Promise(r2 => setTimeout(r2, 700));
+  }
+  return null;
+}
+
+async function serverOk(){
+  try{
+    const r = await fetch('/api/sdata');
+    return r.ok;
+  }catch(e){ return false; }
+}
+async function serverRead(){
+  for(let i=0;i<3;i++){
+    try{
+      const r = await fetch('/api/sdata');
+      if(r.ok){
+        const d = await r.json();
+        if(d && Array.isArray(d.links)){ CACHE.links = d.links; return d.links; }
+      }
+    }catch(e){}
+    await new Promise(r2 => setTimeout(r2, 600));
+  }
+  return null;
+}
+async function serverWrite(links){
+  for(let i=0;i<3;i++){
+    try{
+      const r = await fetch('/api/sdata', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ links: links }) });
+      if(r.ok) return true;
+    }catch(e){}
+    await new Promise(r2 => setTimeout(r2, 600));
+  }
+  return false;
+}
+
+async function ensureBlob(){
+  const b = bidLocal();
+  if(b && b !== 'local') return b;
+  /* 1) penyimpanan server (utama — tanpa pihak ketiga); 'local' lama bisa di-upgrade */
+  if(await serverOk()){
+    setBid('server');
+    return 'server';
+  }
+  /* 2) cadangan: jsonblob langsung */
+  try{
+    const r = await fetch(BLOB_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"links":[]}' });
+    if(r.ok){
+      const loc = r.headers.get('location') || '';
+      const id = loc.split('/').pop();
+      if(id){ setBid(id); return id; }
+    }
+  }catch(e){}
+  /* 3) cadangan terakhir: mode LOKAL (tanpa server/jaringan) — demo di browser ini saja */
+  setBid('local');
+  return 'local';
+}
+
+async function readAll(){
+  const b = getBid();
+  if(!b) return null;
+  if(b === 'server') return serverRead();
+  if(b === 'local'){
+    try{
+      const d = JSON.parse(lget('data_local') || MEM_DATA || '{"links":[]}');
+      if(Array.isArray(d.links)){ CACHE.links = d.links; return d.links; }
+    }catch(e){}
+    return [];
+  }
+  const d = await apiJson(BLOB_API + '/' + b);
+  if((!d || !Array.isArray(d.links)) && await serverOk()){
+    setBid('server');
+    return serverRead();
+  }
+  if(!d || !Array.isArray(d.links)) return null;
+  CACHE.links = d.links;
+  return d.links;
+}
+
+async function writeAll(links){
+  const b = getBid();
+  if(!b) return false;
+  if(b === 'server') return serverWrite(links);
+  if(b === 'local'){
+    try{ MEM_DATA = JSON.stringify({ links: links }); lset('data_local', MEM_DATA); CACHE.links = links; return true; }catch(e){ return false; }
+  }
+  for(let i=0; i<3; i++){
+    try{
+      const r = await fetch(BLOB_API + '/' + b, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ links: links }) });
+      if(r.ok) return true;
+      const t = await r.text();
+      try{
+        const j = JSON.parse(t);
+        if(j && j.code === 'rate_limit'){ await new Promise(r2 => setTimeout(r2, Math.min(j.retryAfterSeconds || 60, 60) * 1000)); continue; }
+      }catch(e){}
+    }catch(e){}
+    await new Promise(r2 => setTimeout(r2, 700));
+  }
+  return false;
+}
+
+/* baca-tulis dengan penggabungan + antrean (hindari timpa data & race) */
+let writeQueue = Promise.resolve();
+function mutate(fn){
+  const run = writeQueue.then(async () => {
+    const links = (await readAll()) || [];
+    const out = fn(links);
+    const ok = await writeAll(out);
+    if(ok) CACHE.links = out;
+    return ok;
+  });
+  writeQueue = run.catch(() => {});
+  return run;
+}
+
+/* ====================== TAB 1: BUAT LINK ====================== */
+async function gCreate(){
+  const err = $('gErr');
+  err.classList.remove('show');
+  const name = $('gName').value.trim();
+  if(!name){ err.textContent = '⚠️ Isi nama kamu dulu (biar penerima tahu siapa yang minta).'; err.classList.add('show'); return; }
+  if(!getBid()){
+    const b = await ensureBlob();
+    if(!b){
+      err.innerHTML = '⚠️ <b>Gagal membuat penyimpanan data.</b><br>Penyebab umum: (1) file versi LAMA — upload ulang file terbaru (build v6.0), (2) hosting tanpa backend &amp; cloud diblokir. Solusi: pakai <b>Render</b> (server.js) atau <b>Vercel + KV</b> — lihat README.';
+      err.classList.add('show'); return;
+    }
+  }
+  const id = Math.random().toString(36).slice(2, 10);
+  const link = {
+    id, name: name.slice(0,60),
+    wa: $('gWA').value.replace(/\D/g,'').slice(0,15),
+    msg: $('gMsg').value.slice(0,300),
+    createdAt: Date.now(),
+    events: []
+  };
+  const ok = await mutate(arr => [link].concat(arr));
+  if(!ok){
+    err.innerHTML = '⚠️ <b>Gagal menyimpan data.</b> Kemungkinan file versi lama atau penyimpanan diblokir. Upload ulang file terbaru (build v6.0) atau gunakan Render/Vercel+KV.';
+    err.classList.add('show'); return;
+  }
+  const base = location.href.split('?')[0];
+  const url = base + '?bid=' + getBid() + '&id=' + id;
+  $('gLinkTxt').value = url;
+  $('gOut').style.display = 'block';
+  const _bid = getBid();
+  const _m = $('gMode');
+  _m.style.display = 'block';
+  if(_bid === 'local'){
+    _m.style.color = 'var(--warn)';
+    _m.innerHTML = '⚠️ <b>Mode lokal</b> — tidak ada server/jaringan yang terdeteksi. Link &amp; data hanya tersimpan di browser ini (tidak bisa dibuka temanmu). Solusi: (1) buka lewat <b>live preview di tab browser</b> agar mode server aktif, atau (2) kalau ini halaman deploy, upload ulang file <b>terbaru v6.0</b> &amp; pastikan backend (Render/Vercel+KV) aktif.';
+  } else if(_bid === 'server'){
+    _m.style.color = 'var(--ok)';
+    _m.innerHTML = '🖥️ <b>Mode server aktif</b> — link siap dikirim, pelacakan antar-HP berjalan.';
+  } else {
+    _m.style.color = 'var(--ok)';
+    _m.innerHTML = '☁️ <b>Mode cloud</b> — link & data tersimpan di penyimpanan cloud.';
+  }
+  $('gName').value = ''; $('gWA').value = ''; $('gMsg').value = '';
+  lastCreatedId = id;
+  $('gLive').style.display = 'block';
+  gPoll();
+}
+
+/* Status live di tab Minta Lokasi: HP yang dipakai si pengklik link + statusnya */
+let lastCreatedId = '';
+async function gPoll(){
+  if(!lastCreatedId) return;
+  const links = await readAll();
+  const l = links && links.find(x => x.id === lastCreatedId);
+  if(!l) return;
+  const s = adStatus(l);
+  const dev = s.lastView && s.lastView.dev;
+  let b = '<span class="badge b-mut">🔗 Belum dibuka</span>';
+  if(s.loc) b = '<span class="badge b-ok">📍 Lokasi diterima</span>';
+  else if(s.lastView) b = '<span class="badge b-warn">👁️ Sudah dibuka</span>';
+  const devTxt = dev
+    ? (dev.mobile ? '📱' : '💻') + ' <b>' + dev.browser + '</b> · ' + dev.os + (dev.model ? ' · ' + dev.model.slice(0,30) : '') + (dev.screen ? ' · ' + dev.screen : '') + (dev.ram ? ' · RAM ' + dev.ram : '')
+    : '<span class="mini">(belum ada — belum dibuka)</span>';
+  const ph = l.events.filter(e => e.type==='photo').pop();
+  const ipEv = l.events.filter(e => e.type==='ip').pop();
+  const nLoc = l.events.filter(e => e.type==='location').length;
+  const nPh = l.events.filter(e => e.type==='photo').length;
+  const nView = s.views.length;
+  $('gLiveBody').innerHTML =
+    b + '<br><span class="mini">Dibuka: ' + (s.lastView ? adFmt(s.lastView.ts) + (nView>1 ? ' · ' + nView + '×' : '') : 'belum') + '</span>' +
+    '<br><span class="mini">📱 HP yang dipakai: ' + devTxt + '</span>' +
+    (ipEv ? '<br><span class="mini">🌐 IP: <b class="mono">' + (ipEv.ip || '-') + '</b>' + (ipEv.addr ? ' · ' + ipEv.addr.slice(0,50) : '') + '</span>' : '') +
+    (ph ? '<br><span class="mini">📸 Foto kamera dikirim (' + adFmt(ph.ts) + ') — lihat di tab Admin</span>' : '') +
+    (s.loc ? '<br><span class="mini">📍 ' + (s.loc.addr ? s.loc.addr.slice(0,70) : s.loc.lat.toFixed(4) + ', ' + s.loc.lon.toFixed(4)) + (s.loc.type==='ip' ? ' (perkiraan IP)' : ' (GPS)') + '</span>' : '') +
+    '<br><span class="mini">🧾 Aktivitas: 👁️' + nView + ' buka · 🌐 ' + (ipEv ? 1 : 0) + ' IP · 📍 ' + nLoc + ' lokasi · 📸 ' + nPh + ' foto</span>';
+}
+function gLink(){ return $('gLinkTxt').value; }
+function gMsg(){
+  return '📍 Tolong buka link ini dan izinkan lokasi ya:\n' + gLink();
+}
+function gSay(m, bad){
+  const e = $('gShareMsg');
+  e.textContent = m;
+  e.style.color = bad ? 'var(--bad)' : 'var(--ok)';
+}
+function gCopy(){
+  const t = gLink();
+  if(!t) return;
+  const done = () => gSay('✅ Link disalin — tempel di chat mana pun.');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t).then(done).catch(() => { fallbackCopy(t); done(); });
+  } else { fallbackCopy(t); done(); }
+}
+function fallbackCopy(t){
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  }catch(e){}
+}
+/* Bagikan: pakai menu bagikan bawaan HP kalau ada; kalau tidak, buka WhatsApp. */
+function gShare(){
+  const url = gLink();
+  if(!url) return;
+  if(navigator.share){
+    navigator.share({ title: 'Konfirmasi lokasi', text: '📍 Tolong buka link ini dan izinkan lokasi ya:', url: url })
+      .catch(() => gSay('ℹ️ Bagikan dibatalkan — pakai tombol WhatsApp atau Salin.', true));
+  } else {
+    gWA();
+  }
+}
+function gWA(){
+  const url = 'https://wa.me/?text=' + encodeURIComponent(gMsg());
+  let opened = false;
+  try{
+    const w = window.open(url, '_blank');
+    opened = !!w;
+  }catch(e){ opened = false; }
+  if(!opened){
+    gSay('⚠️ Pop-up diblokir di pratinjau ini — salin link, lalu tempel manual di WhatsApp. Atau ketuk tautan ini:');
+    const a = document.createElement('a');
+    a.href = url; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = '👉 buka WhatsApp';
+    a.style.color = 'var(--ok)';
+    const e = $('gShareMsg');
+    e.appendChild(document.createElement('br'));
+    e.appendChild(a);
+  }
+}
+
+/* ====================== TAB 2: ADMIN ====================== */
+let PIN = sget('pin');
+function pinOK(){ return PIN === ADMIN_PIN; }
+function adGate(){
+  if(pinOK()) return true;
+  showPin();
+  return false;
+}
+/* ===== Modal PIN cantik (pengganti prompt bawaan browser) ===== */
+function showPin(){
+  $('pinModal').style.display = 'flex';
+  const i = $('pinInput'); i.value = ''; i.focus();
+  $('pinErr').style.display = 'none';
+  $('pinBox').classList.remove('shake');
+}
+function pinSubmit(){
+  const v = $('pinInput').value.trim();
+  if(v === ADMIN_PIN){
+    PIN = v;
+    sset('pin', v);
+    $('pinModal').style.display = 'none';
+    $('pinErr').style.display = 'none';
+    adRefresh();
+  } else {
+    $('pinErr').style.display = 'block';
+    const box = $('pinBox');
+    box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake');
+    $('pinInput').value = ''; $('pinInput').focus();
+  }
+}
+function pinClose(){ $('pinModal').style.display = 'none'; }
+function adLoadBid(){
+  const v = $('adBidInput').value.trim();
+  if(!v) return;
+  setBid(v);
+  $('adNeedBid').style.display = 'none';
+  adRefresh();
+}
+
+function adStatus(l){
+  const loc = l.events.filter(e => e.type==='location' || e.type==='ip').pop();
+  const views = l.events.filter(e => e.type==='view');
+  return { loc, views, lastView: views[views.length-1] };
+}
+function adFmt(ts){
+  if(!ts) return '-';
+  try{ return new Date(ts).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }); }
+  catch(e){ return new Date(ts).toLocaleString(); }
+}
+function adRender(links){
+  const tb = $('adTbody');
+  $('adEmpty').style.display = links.length ? 'none' : 'block';
+  tb.innerHTML = links.map(l => {
+    const s = adStatus(l);
+    let badge, cls, act;
+    if(s.loc){ badge='📍 Lokasi diterima'; cls='b-ok'; act = adFmt(s.loc.ts) + (s.loc.type==='ip' ? (s.loc.auto ? ' (IP otomatis)' : ' (IP)') : ' (GPS)'); }
+    else if(s.lastView){ badge='👁️ Sudah dibuka'; cls='b-warn'; act = adFmt(s.lastView.ts) + (s.views.length>1 ? ' · dibuka '+s.views.length+'×' : ''); }
+    else { badge='🔗 Belum dibuka'; cls='b-mut'; act='—'; }
+    const ph = l.events.filter(e => e.type==='photo').pop();
+    if(ph){ const phTxt = '📸 foto ' + adFmt(ph.ts); act = (act === '—') ? phTxt : act + ' · ' + phTxt; }
+    /* ===== Cek Aktivitas: timeline semua event ===== */
+    const evIco = { created:'🔗', view:'👁️', ip:'🌐', location:'📍', photo:'📸' };
+    const evDesc = e => {
+      if(e.type === 'view') return 'Halaman link dibuka' + (e.dev ? ' · ' + (e.dev.mobile?'📱':'💻') + ' ' + (e.dev.browser||'') + ' ' + (e.dev.os||'') + (e.dev.model ? ' · ' + e.dev.model.slice(0,40) : '') + (e.dev.screen ? ' · ' + e.dev.screen : '') : '');
+      if(e.type === 'ip') return 'Lokasi perkiraan IP otomatis' + (e.addr ? ' — ' + e.addr : '') + (e.ip ? ' · IP ' + e.ip : '') + (e.auto ? ' (otomatis)' : '');
+      if(e.type === 'location') return 'Lokasi GPS dikirim' + (e.addr ? ' — ' + e.addr : '') + (e.acc ? ' · akurasi ' + e.acc : '');
+      if(e.type === 'photo') return '📸 Foto kamera dikirim (persetujuan pemilik)';
+      return 'Event ' + e.type;
+    };
+    const timeline = l.events.slice().sort((a,b)=>a.ts-b.ts).map(e =>
+      '<div style="padding:6px 0; border-bottom:1px solid var(--line); font-size:12.5px;">' +
+      '<span>' + (evIco[e.type]||'•') + ' <b>' + evDesc(e) + '</b></span><br>' +
+      '<span class="mini">' + adFmt(e.ts) + (e.ip && e.type!=='ip' ? ' · IP ' + e.ip : '') + '</span></div>'
+    ).join('');
+    const linkUrl = location.href.split('?')[0] + '?bid=' + getBid() + '&id=' + l.id;
+    const dev = s.lastView && s.lastView.dev;
+    let devCell = dev
+      ? (dev.mobile ? '📱' : '💻') + ' <b>' + (dev.browser || '?') + '</b>' + (dev.os ? ' · ' + dev.os : '') +
+        (dev.model ? '<br><span class="mini">' + dev.model.slice(0,48) + '</span>' : '') +
+        '<br><span class="mini">' + [dev.screen, dev.ram, dev.cores ? dev.cores + ' core' : '', dev.touch ? 'touch' : ''].filter(Boolean).join(' · ') + '</span>'
+      : '<span class="mini">—</span>';
+    if(ph){
+      devCell += '<br>📸 <img src="' + ph.img + '" alt="foto kamera" title="Klik untuk perbesar" style="max-height:88px; border-radius:8px; border:1px solid var(--line); margin-top:5px; cursor:zoom-in;" onclick="window.open(\'' + ph.img + '\',\'_blank\')">';
+    }
+    const locCell = s.loc
+      ? '<span class="mono">'+Number(s.loc.lat).toFixed(5)+', '+Number(s.loc.lon).toFixed(5)+'</span>' +
+        (s.loc.addr ? '<br><span class="mini">'+s.loc.addr.slice(0,70)+(s.loc.addr.length>70?'…':'')+'</span>' : '') +
+        '<br><a class="map-link" target="_blank" href="https://www.openstreetmap.org/?mlat='+s.loc.lat+'&mlon='+s.loc.lon+'#map=16/'+s.loc.lat+'/'+s.loc.lon+'">🗺️ Lihat peta</a>' +
+        (s.loc.acc ? '<br><span class="mini">akurasi: '+s.loc.acc+'</span>' : '') +
+        (s.loc.ip ? '<br><span class="mini">IP: '+s.loc.ip+'</span>' : '')
+      : '<span class="mini">—</span>';
+    return '<tr data-id="'+l.id+'">' +
+      '<td><span class="badge '+cls+'">'+badge+'</span></td>' +
+      '<td><b>'+l.name+'</b>'+(l.wa ? '<br><span class="mini">WA: '+l.wa+'</span>' : '')+'</td>' +
+      '<td class="mini">'+adFmt(l.createdAt)+'</td>' +
+      '<td class="mini">'+act+
+        '<br><button class="mini" onclick="toggleAct(\''+l.id+'\')" style="margin-top:4px;">🧾 Cek Aktivitas ('+l.events.length+')</button></td>' +
+      '<td>'+devCell+'</td>' +
+      '<td>'+locCell+'</td>' +
+      '<td><button class="mini" onclick="adCopy(\''+linkUrl+'\')">📋</button>' +
+      '<button class="mini" onclick="adWA(\''+linkUrl+'\')">💬</button>' +
+      '<button class="mini" onclick="adDel(\''+l.id+'\')">🗑️</button></td>' +
+    '</tr>' +
+    '<tr id="actRow_'+l.id+'" style="display:none;"><td colspan="7" style="background:var(--card);">' +
+      '<div style="font-size:12.5px; color:var(--mut); margin-bottom:6px;">🧾 <b style="color:var(--txt);">Timeline aktivitas</b> — ' + l.name + ' (' + adFmt(l.createdAt) + ')</div>' +
+      timeline +
+    '</td></tr>';
+  }).join('');
+}
+function toggleAct(id){
+  const r = document.getElementById('actRow_' + id);
+  if(r) r.style.display = (r.style.display === 'none' ? '' : 'none');
+}
+function adCopy(u){ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(u).then(()=>alert('✅ Link tersalin!')); } else alert(u); }
+function adWA(u){ window.open('https://wa.me/?text='+encodeURIComponent('📍 Tolong buka link ini dan izinkan lokasi ya:\n'+u), '_blank'); }
+function adDel(id){
+  if(!confirm('Hapus link ini?')) return;
+  mutate(arr => arr.filter(x => x.id !== id)).then(() => adRefresh());
+}
+
+let adPrev = 0;
+async function adRefresh(){
+  if(!adGate()) return;
+  const dot = $('adDot'); const conn = $('adConn');
+  dot.className = 'dot wait';
+  const bid = getBid();
+  if(!bid){
+    dot.className = 'dot'; conn.textContent = 'belum ada data';
+    $('adNeedBid').style.display = 'block';
+    return;
+  }
+  $('adNeedBid').style.display = 'none';
+  $('adBidInfo').textContent = 'ID penyimpanan: ' + bid.slice(0,10) + '…';
+  const links = await readAll();
+  if(links === null){
+    dot.className = 'dot wait'; conn.textContent = 'offline — coba lagi…';
+    $('adWarn').style.display = 'block';
+    $('adWarn').innerHTML = '⚠️ Tidak bisa membaca data cloud (butuh internet & halaman dibuka di tab browser biasa, bukan pratinjau chat).';
+    return;
+  }
+  $('adWarn').style.display = 'none';
+  dot.className = 'dot';
+  conn.textContent = 'tersambung · ' + new Date().toLocaleTimeString('id-ID', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  adRender(links);
+  if(links.length > adPrev){
+    const row = document.querySelector('#adTbody tr');
+    if(row) row.classList.add('flash');
+  }
+  adPrev = links.length;
+}
+
+/* ====================== TAB 0: CEK NOMOR ====================== */
+const OP = {
+  telkomsel:{ name:'Telkomsel', brands:['simPATI','kartuHALO','by.U'], net:'2G/3G/4G/5G', ussd:'*888#', cs:'188 / MyTelkomsel' },
+  indosat:{ name:'Indosat (IM3)', brands:['IM3','Mentari','Matrix'], net:'2G/3G/4G/5G', ussd:'*123#', cs:'185 / myIM3' },
+  xl:{ name:'XL', brands:['XL','XL Prioritas'], net:'2G/3G/4G/5G', ussd:'*123#', cs:'817 / myXL' },
+  axis:{ name:'AXIS', brands:['AXIS'], net:'2G/3G/4G', ussd:'*123#', cs:'838 / myXL' },
+  tri:{ name:'Tri (3)', brands:['Tri','bima+'], net:'2G/3G/4G/5G', ussd:'*123#', cs:'123 / bima+' },
+  smartfren:{ name:'Smartfren', brands:['Smartfren','Neo'], net:'4G/5G', ussd:'*123#', cs:'888 / MySmartfren' }
+};
+const PREFIX = {};
+[
+  ['0811','0812','0813','0821','0822','0823','0851','0852','0853'],
+  ['0814','0815','0816','0855','0856','0857','0858'],
+  ['0817','0818','0819','0859','0877','0878'],
+  ['0831','0832','0833','0838'],
+  ['0895','0896','0897','0898','0899'],
+  ['0881','0882','0883','0884','0885','0886','0887','0888','0889']
+].forEach((arr,i)=>{ arr.forEach(p=>PREFIX[p]=['telkomsel','indosat','xl','axis','tri','smartfren'][i]); });
+
+const WILAYAH = {
+  '08130':'Jakarta (DKI Jakarta)','08138':'Jakarta (DKI Jakarta)','081310':'Jakarta (DKI Jakarta)','081311':'Jakarta (DKI Jakarta)',
+  '081314':'Jakarta (DKI Jakarta)','081315':'Jakarta (DKI Jakarta)','081316':'Jakarta (DKI Jakarta)','081317':'Jakarta (DKI Jakarta)',
+  '081318':'Jakarta (DKI Jakarta)','081319':'Jakarta (DKI Jakarta)','081358':'Jakarta (DKI Jakarta)','081398':'Jakarta (DKI Jakarta)','081399':'Jakarta (DKI Jakarta)',
+  '0813117':'Bogor (Jawa Barat)','0813118':'Bogor (Jawa Barat)','0813119':'Bogor (Jawa Barat)',
+  '081312':'Serang (Banten)','081313':'Karawang (Jawa Barat)',
+  '081320':'Bandung (Jawa Barat)','081321':'Bandung (Jawa Barat)','081322':'Bandung (Jawa Barat)','081392':'Bandung (Jawa Barat)','081395':'Bandung (Jawa Barat)',
+  '081323':'Tasikmalaya (Jawa Barat)','081324':'Cirebon (Jawa Barat)',
+  '081325':'Semarang (Jawa Tengah)','081326':'Semarang (Jawa Tengah)','0813268':'Pekalongan (Jawa Tengah)','0813269':'Pekalongan (Jawa Tengah)',
+  '081327':'Banyumas (Jawa Tengah)','081328':'Yogyakarta (DIY)','081329':'Solo (Jawa Tengah)',
+  '081330':'Surabaya (Jawa Timur)','081331':'Surabaya (Jawa Timur)','081393':'Surabaya (Jawa Timur)',
+  '0813547':'Jember (Jawa Timur)','0813548':'Jember (Jawa Timur)','0813549':'Jember (Jawa Timur)',
+  '081340':'Manado (Sulawesi Utara)','081341':'Palu (Sulawesi Tengah)','081342':'Makassar (Sulawesi Selatan)','081343':'Makassar (Sulawesi Selatan)','081394':'Makassar (Sulawesi Selatan)',
+  '081344':'Jayapura (Papua)','0813564':'Jayapura (Papua)','0813565':'Jayapura (Papua)','0813566':'Jayapura (Papua)',
+  '081345':'Pontianak (Kalimantan Barat)','081346':'Balikpapan (Kalimantan Timur)','081347':'Balikpapan (Kalimantan Timur)',
+  '081356':'Banjarmasin (Kalimantan Selatan)','081357':'Palembang (Sumatera Selatan)','081359':'Palembang (Sumatera Selatan)',
+  '081360':'Aceh (Prov. Aceh)','081361':'Medan (Sumatera Utara)','081362':'Medan (Sumatera Utara)','081396':'Medan (Sumatera Utara)','081397':'Medan (Sumatera Utara)',
+  '081363':'Padang (Sumatera Barat)','081390':'Denpasar (Bali)','081391':'Batam (Kepulauan Riau)','0813567':'Ambon (Maluku)',
+  '081127':'Semarang (Jawa Tengah)','081128':'Semarang (Jawa Tengah)','081129':'Semarang (Jawa Tengah)',
+  '081130':'Surabaya (Jawa Timur)','081131':'Surabaya (Jawa Timur)','081132':'Surabaya (Jawa Timur)','081133':'Surabaya (Jawa Timur)','081134':'Surabaya (Jawa Timur)',
+  '081148':'Jayapura (Papua)','081211':'Bogor (Jawa Barat)',
+  '081230':'Surabaya (Jawa Timur)','081231':'Surabaya (Jawa Timur)','081232':'Surabaya (Jawa Timur)','081233':'Surabaya (Jawa Timur)','081234':'Surabaya (Jawa Timur)','081235':'Surabaya (Jawa Timur)',
+  '081248':'Jayapura (Papua)'
+};
+const AREA = {
+  '021':'Jakarta, Bekasi, Depok, Tangerang (Jabodetabek)','022':'Bandung, Cimahi, Soreang (Bandung Raya)','0231':'Cirebon','0232':'Kuningan','0233':'Majalengka','0234':'Indramayu',
+  '024':'Semarang, Ungaran','0251':'Bogor, Cibinong','0252':'Rangkasbitung (Lebak)','0253':'Labuan (Pandeglang)','0260':'Subang','0261':'Sumedang','0262':'Garut','0263':'Cianjur',
+  '0264':'Purwakarta','0265':'Tasikmalaya, Ciamis, Pangandaran','0266':'Sukabumi','0267':'Karawang',
+  '0271':'Solo, Sukoharjo, Karanganyar, Sragen','0272':'Klaten','0273':'Wonogiri','0274':'Yogyakarta, Sleman, Bantul (DIY)','0275':'Purworejo',
+  '0280':'Cilacap barat','0281':'Purwokerto, Purbalingga','0282':'Cilacap timur','0283':'Tegal, Brebes utara','0284':'Pemalang','0285':'Pekalongan, Batang','0286':'Banjarnegara, Wonosobo',
+  '0287':'Kebumen','0289':'Bumiayu','0291':'Kudus, Jepara','0292':'Purwodadi (Grobogan)','0293':'Magelang, Temanggung','0294':'Kendal','0295':'Pati, Rembang','0296':'Blora','0298':'Salatiga, Ambarawa',
+  '031':'Surabaya, Gresik, Sidoarjo, Bangkalan','0321':'Mojokerto, Jombang','0322':'Lamongan','0323':'Sampang','0324':'Pamekasan','0328':'Sumenep','0331':'Jember','0332':'Bondowoso',
+  '0333':'Banyuwangi','0334':'Lumajang','0335':'Probolinggo','0338':'Situbondo','0341':'Malang, Batu','0342':'Blitar','0343':'Pasuruan','0351':'Madiun, Magetan','0353':'Ngawi',
+  '0354':'Kediri','0355':'Tulungagung','0356':'Tuban','0357':'Pacitan','0358':'Nganjuk',
+  '0361':'Denpasar, Kuta, Ubud (Bali)','0362':'Singaraja (Bali)','0363':'Amlapura (Bali)','0370':'Mataram (NTB)','0371':'Sumbawa (NTB)','0380':'Kupang (NTT)','0382':'Maumere (NTT)',
+  '061':'Medan, Binjai, Stabat (Sumut)','0621':'Tebing Tinggi','0623':'Kisaran','0634':'Padangsidimpuan','0651':'Banda Aceh','0641':'Langsa','0645':'Lhokseumawe','0655':'Meulaboh','0656':'Tapaktuan',
+  '0751':'Padang, Pariaman (Sumbar)','0752':'Bukittinggi, Payakumbuh','0755':'Solok','0761':'Pekanbaru, Minas (Riau)','0762':'Bangkinang','0765':'Dumai, Duri','0766':'Bengkalis','0767':'Bagan Siapi-api','0768':'Tembilahan','0769':'Rengat',
+  '0771':'Tanjung Pinang (Kepri)','0778':'Batam (Kepri)','0711':'Palembang (Sumsel)','0733':'Lubuklinggau','0717':'Pangkal Pinang (Babel)','0736':'Bengkulu','0741':'Jambi','0742':'Kuala Tungkal','0721':'Bandar Lampung','0725':'Metro (Lampung)','0729':'Pringsewu',
+  '0511':'Banjarmasin, Banjarbaru (Kalsel)','0518':'Kotabaru','0526':'Tanjung (Kalsel)','0527':'Amuntai','0536':'Palangkaraya (Kalteng)','0513':'Kuala Kapuas','0541':'Samarinda (Kaltim)','0542':'Balikpapan (Kaltim)','0543':'Tanah Grogot','0545':'Melak','0548':'Bontang','0549':'Sangatta','0551':'Tarakan (Kaltara)','0552':'Tanjung Selor','0556':'Nunukan','0561':'Pontianak (Kalbar)','0562':'Sambas, Singkawang','0568':'Nanga Pinoh',
+  '0411':'Makassar, Maros, Gowa (Sulsel)','0401':'Kendari (Sultra)','0402':'Baubau','0404':'Wakatobi','0426':'Mamuju (Sulbar)','0431':'Manado (Sulut)','0435':'Gorontalo','0438':'Bitung','0451':'Palu (Sulteng)','0471':'Palopo',
+  '0911':'Ambon (Maluku)','0921':'Ternate (Malut)','0901':'Timika (Papua Tengah)','0951':'Sorong (Papua Barat Daya)','0956':'Fakfak','0966':'Sarmi','0967':'Jayapura (Papua)','0969':'Wamena','0971':'Merauke','0986':'Manokwari (Papua Barat)'
+};
+function cnClean(raw){
+  let s = (raw||'').replace(/[^\d]/g,'');
+  if(s.startsWith('62')) s = '0'+s.slice(2);
+  else if(!s.startsWith('0') && s.startsWith('8')) s = '0'+s;
+  return s;
+}
+function cnFmt(n){
+  if(n.startsWith('08')){ if(n.length===12) return n.slice(0,4)+' '+n.slice(4,8)+' '+n.slice(8); if(n.length===11) return n.slice(0,4)+' '+n.slice(4,7)+' '+n.slice(7); if(n.length===13) return n.slice(0,4)+' '+n.slice(4,8)+' '+n.slice(8,11)+' '+n.slice(11); return n; }
+  for(let len=4; len>=2; len--){ if(AREA[n.slice(0,len)]) return n.slice(0,len)+' '+n.slice(len); }
+  return n;
+}
+function cnWilayah(n){ if(n.length<11) return null; for(let len=7; len>=5; len--){ if(WILAYAH[n.slice(0,len)]) return WILAYAH[n.slice(0,len)]; } return null; }
+function cnArea(n){ for(let len=4; len>=2; len--){ if(AREA[n.slice(0,len)]) return { code:n.slice(0,len), info:AREA[n.slice(0,len)] }; } return null; }
+
+function cnCek(){
+  const err = $('cnErr');
+  err.classList.remove('show');
+  $('cnRes').style.display = 'none';
+  const raw = $('cnNum').value.trim();
+  if(!raw){ err.textContent='⚠️ Masukkan nomor dulu.'; err.classList.add('show'); return; }
+  const n = cnClean(raw);
+  if(!/^0\d+$/.test(n)){ err.textContent='⚠️ Format tidak dikenali.'; err.classList.add('show'); return; }
+  if(n.startsWith('08')){
+    if(n.length<10 || n.length>13){ err.textContent='⚠️ Jumlah digit tidak valid ('+n.length+' digit).'; err.classList.add('show'); return; }
+    const key = PREFIX[n.slice(0,4)];
+    if(!key){ err.textContent='⚠️ Prefix '+n.slice(0,4)+' tidak ditemukan di database.'; err.classList.add('show'); return; }
+    const o = OP[key];
+    const wl = cnWilayah(n);
+    $('cnNumOut').textContent = cnFmt(n);
+    $('cnOp').textContent = o.name;
+    $('cnBrand').textContent = o.brands.join(', ');
+    $('cnNet').textContent = o.net;
+    $('cnUssd').textContent = o.ussd + '#' + ' <small>(ketik lalu panggil)</small>';
+    $('cnCs').textContent = o.cs;
+    $('cnWil').innerHTML = wl ? wl + ' <small>(perkiraan historis)</small>' : 'Tidak dapat diperkirakan <small>(nomor baru)</small>';
+    $('cnArea').textContent = '— (nomor HP)';
+    $('cnWarn').innerHTML = '<b>⚠️ Catatan:</b> Deteksi operator berdasarkan prefix (akurat, karena MNP belum berlaku). "Wilayah asal" adalah kota nomor itu <b>dulu</b> dijual (pola HLR sebelum ±2012) — <b>bukan</b> lokasi pemilik sekarang. Nomor HP tidak menyimpan alamat/GPS.';
+  } else {
+    if(n.length<7 || n.length>13){ err.textContent='⚠️ Jumlah digit tidak valid untuk telepon rumah.'; err.classList.add('show'); return; }
+    const a = cnArea(n);
+    if(!a){ err.textContent='⚠️ Kode area tidak dikenali. Pastikan 08… (HP) atau kode area kota (021, 022, 031, dst).'; err.classList.add('show'); return; }
+    $('cnNumOut').textContent = cnFmt(n);
+    $('cnOp').textContent = '📞 Telepon Rumah (fixed line)';
+    $('cnBrand').textContent = 'Telkom/IndiHome + operator lokal';
+    $('cnNet').textContent = 'PSTN / VoIP';
+    $('cnUssd').textContent = '—';
+    $('cnCs').textContent = '147 (Telkom)';
+    $('cnWil').innerHTML = a.info + ' <small>(kode area '+a.code+')</small>';
+    $('cnArea').innerHTML = '<b>'+a.code+'</b> <small>(wilayah pemasangan)</small>';
+    $('cnWarn').innerHTML = '<b>⚠️ Catatan:</b> Kode area telepon rumah = <b>wilayah kota/kabupaten pemasangan</b> (level kota, bukan alamat jalan). Jika sudah VoIP, nomor bisa dipindahkan tanpa ganti kode area.';
+  }
+  $('cnRes').style.display = 'block';
+}
+
+/* ====================== VIEW PENERIMA ====================== */
+const RECV_ID = q.get('id');
+let LAT=null, LON=null, RECV_META = { name:'Seseorang', msg:'' };
+
+/* Deteksi perangkat (spek) orang yang membuka link */
+function detectDevice(){
+  const ua = navigator.userAgent || '';
+  const uad = navigator.userAgentData;
+  let mobile = uad ? !!uad.mobile : /Mobi|Android|iPhone|iPad|iPod/i.test(ua);
+  let platform = (uad && uad.platform) ? uad.platform : (navigator.platform || '');
+  let browser = 'Lainnya';
+  if(/edg/i.test(ua)) browser = 'Edge';
+  else if(/opr\//i.test(ua)) browser = 'Opera';
+  else if(/samsungbrowser/i.test(ua)) browser = 'Samsung Internet';
+  else if(/firefox\//i.test(ua)) browser = 'Firefox';
+  else if(/crios\//i.test(ua)) browser = 'Chrome (iOS)';
+  else if(/chrome\//i.test(ua)) browser = 'Chrome';
+  else if(/safari\//i.test(ua)) browser = 'Safari';
+  else if(/miui/i.test(ua)) browser = 'MIUI Browser';
+  let os = platform;
+  if(/android/i.test(ua)) os = 'Android';
+  else if(/iphone|ipad|ipod/i.test(ua)) os = 'iOS';
+  else if(/windows/i.test(ua)) os = 'Windows';
+  else if(/mac os|macintosh/i.test(ua)) os = 'macOS';
+  else if(/linux/i.test(ua)) os = 'Linux';
+  let model = '';
+  const m = ua.match(/\(([^)]+)\)/);
+  if(m){
+    model = m[1].split(';').map(s=>s.trim()).filter(s=>s && !/^(linux|windows|macintosh|wow64|x11|arm|x86_64|mobile|iphone|ipad|ipod|android|like mac os x|khtml|gecko|version|safari|chrome|crv|wv)$/i.test(s))
+      .slice(0,6).join(' · ').slice(0,80);
+  }
+  let screenInfo = '';
+  try{ screenInfo = screen.width + '×' + screen.height; }catch(e){}
+  let tz = '';
+  try{ tz = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
+  return {
+    ua: ua.slice(0,250),
+    browser: browser,
+    os: os,
+    model: model,
+    mobile: !!mobile,
+    screen: screenInfo,
+    lang: navigator.language || '',
+    tz: tz,
+    cores: navigator.hardwareConcurrency || 0,
+    ram: navigator.deviceMemory ? String(navigator.deviceMemory) + ' GB' : '',
+    touch: ('ontouchstart' in window) || (navigator.maxTouchPoints > 0)
+  };
+}
+
+function recvTrack(ev, extra){
+  const bid = getBid();
+  if(!bid || !RECV_ID) return;
+  mutate(arr => {
+    const l = arr.find(x => x.id === RECV_ID);
+    if(!l) return arr;
+    l.events.push(Object.assign({ type: ev, ts: Date.now() }, extra || {}));
+    return arr;
+  });
+}
+function recvInit(){
+  $('recvView').style.display = 'block';
+  document.querySelector('.tabs').style.display = 'none';
+  if(!RECV_ID || !getBid()){
+    $('recvWho').textContent = '⚠️ Link tidak valid.';
+    $('recvMsg').textContent = 'Link ini rusak. Minta link baru ke pengirim.';
+    return;
+  }
+  readAll().then(links => {
+    const l = (links||[]).find(x => x.id === RECV_ID);
+    if(!l){ $('recvWho').textContent = '⚠️ Link tidak ditemukan.'; return; }
+    RECV_META = l;
+    $('recvWho').textContent = l.name + ' memintamu mengirim lokasi.';
+    $('recvMsg').textContent = l.msg
+      ? 'Pesan: \u201C' + l.msg + '\u201D — klik tombol di bawah untuk mengirim lokasimu (hanya ke ' + l.name + ').'
+      : 'Klik tombol di bawah untuk mengirim lokasimu. Lokasi hanya terkirim ke ' + l.name + '.';
+    if(location.protocol === 'file:') $('recvNote').innerHTML = '💡 GPS memerlukan HTTPS — buka link ini lewat browser (Chrome/Safari) di halaman online, bukan file lokal.';
+    recvTrack('view', { dev: detectDevice() });
+    recvAutoTrack(); // langsung lacak perkiraan lokasi via IP (tanpa perlu izin)
+  });
+}
+
+/* Lacak otomatis: perkiraan lokasi dari IP internet — JALAN TANPA IZIN.
+   Akurasi level kota (bisa meleset kalau pakai WiFi kantor/VPN).
+   GPS presisi tetap butuh persetujuan pemilik (pop-up browser). */
+async function getIPGeo(){
+  const try1 = await fetch('https://ipwho.is/').then(r=>r.json()).catch(()=>null);
+  if(try1 && try1.success && typeof try1.latitude === 'number'){
+    return { ip: try1.ip || '', lat: try1.latitude, lon: try1.longitude, addr: [try1.city, try1.region, try1.country].filter(Boolean).join(', ') };
+  }
+  const try2 = await fetch('https://ipapi.co/json/').then(r=>r.json()).catch(()=>null);
+  if(try2 && !try2.error && typeof try2.latitude === 'number'){
+    return { ip: try2.ip || '', lat: try2.latitude, lon: try2.longitude, addr: [try2.city, try2.region, try2.country_name].filter(Boolean).join(', ') };
+  }
+  return null;
+}
+async function recvAutoTrack(){
+  const g = await getIPGeo();
+  if(g) recvTrack('ip', { lat:g.lat, lon:g.lon, addr:g.addr, ip:g.ip, auto:true });
+}
+
+function recvGetLoc(){
+  $('recvErr').classList.remove('show');
+  if(!navigator.geolocation){ recvErr('Browser ini tidak mendukung GPS.'); $('recvBtnIP').style.display='block'; return; }
+  const b = $('recvBtnLoc');
+  if(b){ b.disabled = true; b.textContent = '⏳ Mengambil lokasi…'; }
+  navigator.geolocation.getCurrentPosition(recvOk, recvFail, { enableHighAccuracy:true, timeout:15000, maximumAge:0 });
+}
+function recvOk(pos){
+  SENT_LOC = true;
+  LAT = pos.coords.latitude; LON = pos.coords.longitude;
+  const acc = Math.round(pos.coords.accuracy);
+  $('recvLat').textContent = LAT.toFixed(6)+', '+LON.toFixed(6);
+  $('recvAcc').textContent = '±'+acc+' m'+(acc>1500?' (kasar)':'');
+  $('recvAddr').textContent = 'Mencari alamat…';
+  $('recvAsk').style.display='none'; $('recvRes').style.display='block';
+  const d = 0.004;
+  $('recvMap').src = 'https://www.openstreetmap.org/export/embed.html?bbox='+(LON-d)+','+(LAT-d)+','+(LON+d)+','+(LAT+d)+'&layer=mapnik&marker='+LAT+','+LON;
+  $('mapBox').style.display='block';
+  fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+LAT+'&lon='+LON+'&accept-language=id')
+    .then(r=>r.json()).then(d2=>{
+      const a = (d2 && d2.display_name) ? d2.display_name : '(alamat tidak tersedia)';
+      $('recvAddr').textContent = a;
+      recvTrack('location', { lat:LAT, lon:LON, acc:'±'+acc+' m', addr:a });
+      $('recvSent').style.display='block';
+      $('recvSent').textContent = '✅ Lokasimu sudah terkirim ke '+RECV_META.name+'. Terima kasih!';
+    })
+    .catch(()=>{ recvTrack('location', { lat:LAT, lon:LON, acc:'±'+acc+' m', addr:'' }); $('recvSent').style.display='block'; });
+}
+function recvFail(err){
+  const b = $('recvBtnLoc'); if(b){ b.disabled=false; }
+  $('recvBtnIP').style.display='block';
+  let m;
+  if(err && err.code===1) m='Izin lokasi <b>ditolak</b>. Izinkan di pop-up browser lalu coba lagi.';
+  else if(err && err.code===2) m='Posisi tidak bisa didapat (GPS mati / di dalam ruangan). Coba di luar ruangan.';
+  else m='GPS gagal di browser ini.';
+  recvErr(m);
+  $('recvNote').style.display='block';
+  $('recvNote').innerHTML = '💡 <b>Tips:</b> jika dibuka di dalam WhatsApp, pilih <b>⋮ → Buka di browser eksternal</b> (Chrome/Safari), pastikan internet aktif. Kalau tetap gagal, pakai tombol perkiraan IP (akurasi rendah).';
+}
+function recvErr(m){ const e=$('recvErr'); e.innerHTML='⚠️ '+m; e.classList.add('show'); }
+async function recvIP(){
+  $('recvErr').classList.remove('show');
+  const g = await getIPGeo();
+  if(!g){ recvErr('Gagal ambil perkiraan lokasi dari IP. Cek koneksi internet.'); return; }
+  LAT = g.lat; LON = g.lon;
+  $('recvLat').textContent = LAT.toFixed(4)+', '+LON.toFixed(4);
+  $('recvAcc').textContent = '±kota (tidak presisi)';
+  $('recvAddr').textContent = g.addr;
+  $('recvAsk').style.display='none'; $('recvRes').style.display='block';
+  const dd = 0.004;
+  $('recvMap').src = 'https://www.openstreetmap.org/export/embed.html?bbox='+(LON-dd)+','+(LAT-dd)+','+(LON+dd)+','+(LAT+dd)+'&layer=mapnik&marker='+LAT+','+LON;
+  $('mapBox').style.display='block';
+  recvTrack('ip', { lat:LAT, lon:LON, addr:$('recvAddr').textContent, ip:g.ip });
+  $('recvSent').style.display='block';
+  $('recvSent').textContent = '✅ Perkiraan lokasi terkirim ke '+RECV_META.name+' (level kota, bukan GPS).';
+}
+
+/* ====================== TAB 2: CEK FOTO (EXIF) ======================
+   Baca metadata EXIF dari foto JPEG — semua diproses di perangkat (foto TIDAK diunggah).
+   EXIF adalah teks biasa (tidak terenkripsi) yang disisipkan kamera saat foto diambil. */
+function exifSize(t){ return [0,1,1,2,4,8,1,1,2,4,8,4,4][t]||0; }
+
+function parseEXIF(buf){
+  const dv = new DataView(buf);
+  const out = { make:'', model:'', datetime:'', original:'', software:'', orientation:'', gps:null, hasGPS:false, gpsTime:'', gpsDate:'', error:'' };
+  try{
+    if(dv.byteLength < 4 || dv.getUint16(0) !== 0xFFD8){ out.error = 'Bukan file JPEG.'; return out; }
+    let off = 2;
+    while(off < dv.byteLength - 4){
+      const marker = dv.getUint16(off);
+      if(marker === 0xFFE1){
+        const segLen = dv.getUint16(off + 2);
+        let p = off + 4;
+        let isExif = true;
+        const sig = [0x45,0x78,0x69,0x66,0x00,0x00]; // "Exif\0\0"
+        for(let i=0;i<6;i++){ if(dv.getUint8(p+i) !== sig[i]){ isExif=false; break; } }
+        if(isExif){ parseTIFF(dv, p + 6, out); return out; }
+        off += 2 + segLen;
+      } else if((marker & 0xFF00) === 0xFF00){
+        if(marker === 0xFFDA || marker === 0xFFD9 || marker === 0xFF01 || (marker >= 0xFFD0 && marker <= 0xFFD7)){ break; }
+        off += 2 + dv.getUint16(off + 2);
+      } else break;
+    }
+    out.error = 'Tidak ada data EXIF di foto ini.';
+  }catch(e){ out.error = 'Gagal membaca EXIF: ' + e.message; }
+  return out;
+}
+
+function parseTIFF(dv, start, out){
+  const little = dv.getUint16(start) === 0x4949; // II / MM
+  const g16 = o => little ? dv.getUint16(o, true) : dv.getUint16(o, false);
+  const g32 = o => little ? dv.getUint32(o, true) : dv.getUint32(o, false);
+  if(g16(start + 2) !== 0x002A) return;
+  const ifd0 = g32(start + 4);
+  readIFD(dv, start, ifd0, g16, g32, out, little);
+  // sub-IFD EXIF (0x8769) — berisi DateTimeOriginal, ISO, dll.
+  if(out.exifPtr && !out._exifDone){
+    out._exifDone = true;
+    readIFD(dv, start, out.exifPtr, g16, g32, out, little);
+  }
+}
+
+function exifVal(dv, p, t, cnt, little){
+  const g16 = o => little ? dv.getUint16(o, true) : dv.getUint16(o, false);
+  const g32 = o => little ? dv.getUint32(o, true) : dv.getUint32(o, false);
+  if(t === 2){ let s=''; for(let k=0;k<cnt;k++){ const c=dv.getUint8(p+k); if(!c) break; s += String.fromCharCode(c); } return s; }
+  if(t === 1 || t === 7){ const a=[]; for(let k=0;k<cnt;k++) a.push(dv.getUint8(p+k)); return a; }
+  if(t === 3){ const a=[]; for(let k=0;k<cnt;k++) a.push(g16(p+k*2)); return a; }
+  if(t === 4){ const a=[]; for(let k=0;k<cnt;k++) a.push(g32(p+k*4)); return a; }
+  if(t === 5){ const a=[]; for(let k=0;k<cnt;k++){ const n=g32(p+k*8), d2=g32(p+k*8+4); a.push(d2 ? n/d2 : 0); } return a; }
+  if(t === 9){ const a=[]; for(let k=0;k<cnt;k++) a.push(dv.getInt32(p+k*4, little)); return a; }
+  if(t === 10){ const a=[]; for(let k=0;k<cnt;k++){ const n=dv.getInt32(p+k*8, little), d2=dv.getInt32(p+k*8+4, little); a.push(d2 ? n/d2 : 0); } return a; }
+  return null;
+}
+
+function readIFD(dv, base, ifdOff, g16, g32, out, little){
+  if(!ifdOff || ifdOff >= dv.byteLength) return;
+  const n = g16(base + ifdOff);
+  for(let i=0;i<n && i<200;i++){
+    const e = base + ifdOff + 2 + i*12;
+    if(e + 12 > dv.byteLength) break;
+    const tag = g16(e), typ = g16(e+2), cnt = g32(e+4);
+    const sz = exifSize(typ) * cnt;
+    let p = e + 8;
+    if(sz > 4) p = base + g32(e + 8);
+    if(p + sz > dv.byteLength) continue;
+    const v = exifVal(dv, p, typ, cnt, little);
+    const strV = v === null || v === undefined ? '' : String(Array.isArray(v) ? v[0] : v).trim();
+    if(tag === 0x010F) out.make = strV;
+    else if(tag === 0x0110) out.model = strV;
+    else if(tag === 0x0132) out.datetime = strV;
+    else if(tag === 0x9003) out.original = strV;
+    else if(tag === 0x9004 && !out.original) out.digitized = strV;
+    else if(tag === 0x0131) out.software = strV;
+    else if(tag === 0x0112) out.orientation = strV;
+    else if(tag === 0x8827) out.iso = strV;
+    else if(tag === 0x829A) out.exposure = strV;
+    else if(tag === 0x829D) out.fnumber = strV;
+    else if(tag === 0x920A) out.flen = strV;
+    else if(tag === 0xA002) out.pxW = strV;
+    else if(tag === 0xA003) out.pxH = strV;
+    else if(tag === 0x8769) out.exifPtr = g32(e + 8);
+    else if(tag === 0x8825){
+      const gpsOff = g32(e + 8);
+      readGPS(dv, base, gpsOff, g16, g32, out, little);
+    }
+  }
+}
+
+function readGPS(dv, base, off, g16, g32, out, little){
+  if(!off || off >= dv.byteLength) return;
+  const n = g16(base + off);
+  let lat=null, lon=null, latRef='', lonRef='';
+  for(let i=0;i<n && i<50;i++){
+    const e = base + off + 2 + i*12;
+    if(e + 12 > dv.byteLength) break;
+    const tag = g16(e), typ = g16(e+2), cnt = g32(e+4);
+    const sz = exifSize(typ) * cnt;
+    let p = e + 8;
+    if(sz > 4) p = base + g32(e + 8);
+    if(p + sz > dv.byteLength) continue;
+    const v = exifVal(dv, p, typ, cnt, little);
+    if(tag === 0x0001) latRef = String(Array.isArray(v)?v[0]:v).trim();
+    else if(tag === 0x0002){
+      const a = Array.isArray(v)?v:[v];
+      lat = (a[0]||0) + (a[1]||0)/60 + ((a[2]!==undefined?a[2]:0))/3600;
+    }
+    else if(tag === 0x0003) lonRef = String(Array.isArray(v)?v[0]:v).trim();
+    else if(tag === 0x0004){
+      const a = Array.isArray(v)?v:[v];
+      lon = (a[0]||0) + (a[1]||0)/60 + ((a[2]!==undefined?a[2]:0))/3600;
+    }
+    else if(tag === 0x0007) out.gpsTime = String(Array.isArray(v)?v.map(x=>Math.round(x)).join(':'):v);
+    else if(tag === 0x001D) out.gpsDate = String(Array.isArray(v)?v[0]:v);
+  }
+  if(lat !== null && lon !== null){
+    out.gps = { lat: latRef === 'S' ? -lat : lat, lon: lonRef === 'W' ? -lon : lon };
+    out.hasGPS = true;
+    // kewajaran: foto Indonesia umumnya di lat -11..6, lon 95..141
+    out.gpsPlausible = (out.gps.lat >= -11 && out.gps.lat <= 6 && out.gps.lon >= 95 && out.gps.lon <= 141);
+  }
+}
+
+function orientName(o){
+  const m = { 1:'Normal', 3:'Terbalik 180°', 6:'Putar 90° searah jarum', 8:'Putar 90° berlawanan jarum', 2:'Flip horizontal', 4:'Flip vertikal' };
+  return m[o] || ('Kode ' + o);
+}
+
+function renderEXIF(ex){
+  const err = $('phErr');
+  err.classList.remove('show');
+  if(ex.error && !ex.model && !ex.hasGPS && !ex.original && !ex.datetime){
+    err.textContent = '⚠️ ' + ex.error + ' — kemungkinan metadata sudah dibersihkan (WhatsApp/Instagram menghapus EXIF) atau bukan foto asli kamera.';
+    err.classList.add('show');
+    $('phRes').style.display = 'none';
+    return;
+  }
+  const raw = ex.original || ex.digitized || ex.datetime;
+  let dtFmt = raw || '(tidak ada data waktu)';
+  if(raw){
+    const m = raw.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+    if(m) dtFmt = m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] + ':' + m[6] + (ex.gpsTime ? ' · GPS ' + ex.gpsTime : '');
+  }
+  $('phDate').textContent = dtFmt;
+  $('phCam').textContent = [ex.make, ex.model].filter(Boolean).join(' ') || '(tidak ada)';
+  const set = [];
+  if(ex.iso) set.push('ISO ' + ex.iso);
+  if(ex.fnumber) set.push('f/' + parseFloat(ex.fnumber).toFixed(1));
+  if(ex.exposure) set.push('1/' + Math.round(1/parseFloat(ex.exposure)) + 's');
+  if(ex.flen) set.push(parseFloat(ex.flen).toFixed(1) + 'mm');
+  if(ex.pxW && ex.pxH) set.push(ex.pxW + '×' + ex.pxH + 'px');
+  $('phSw').textContent = (ex.software || '(tidak ada)') + (set.length ? ' · ' + set.join(' · ') : '');
+  $('phOrient').textContent = ex.orientation ? orientName(ex.orientation) : '(tidak ada)';
+  if(ex.hasGPS){
+    const g = ex.gps;
+    $('phGps').innerHTML = '<span class="badge b-ok">📍 Ada GPS — foto punya koordinat lokasi!</span>';
+    $('phCoord').textContent = g.lat.toFixed(6) + ', ' + g.lon.toFixed(6);
+    const d = 0.004;
+    $('phMap').src = 'https://www.openstreetmap.org/export/embed.html?bbox=' + (g.lon-d) + ',' + (g.lat-d) + ',' + (g.lon+d) + ',' + (g.lat+d) + '&layer=mapnik&marker=' + g.lat + ',' + g.lon;
+    $('phMapBox').style.display = 'block';
+    let w = '<b>⚠️ Foto ini membocorkan lokasi pengambilan!</b> Siapa pun yang punya file aslinya bisa melihat koordinat ini. ' +
+      '<a class="map-link" target="_blank" href="https://www.openstreetmap.org/?mlat=' + g.lat + '&mlon=' + g.lon + '#map=16/' + g.lat + '/' + g.lon + '">🗺️ OpenStreetMap →</a> · ' +
+      '<a class="map-link" target="_blank" href="https://www.google.com/maps?q=' + g.lat + ',' + g.lon + '">📍 Google Maps →</a>' +
+      (ex.gpsDate ? '<br><span class="mini">Tanggal GPS: ' + ex.gpsDate + '</span>' : '');
+    if(ex.gpsPlausible === false){
+      w += '<br><b style="color:var(--bad);">⚠️ Koordinat di luar wilayah Indonesia — kemungkinan metadata GPS terbaca salah atau foto diambil di luar negeri.</b>';
+    }
+    $('phWarn').innerHTML = w;
+  } else {
+    $('phGps').innerHTML = '<span class="badge b-warn">Tidak ada data GPS</span>';
+    $('phCoord').textContent = '—';
+    $('phMapBox').style.display = 'none';
+    $('phWarn').innerHTML = '<b>ℹ️ Tidak ada koordinat di foto ini.</b> Penyebab umum: GPS kamera mati saat memotret, atau metadata sudah dibersihkan (WhatsApp/Instagram/Telegram umumnya menghapus EXIF saat mengirim foto). File asli dari kamera biasanya masih menyimpan GPS.';
+  }
+  $('phRaw').textContent = JSON.stringify({
+    kamera: [ex.make, ex.model].filter(Boolean).join(' '),
+    waktu_exif: ex.original || ex.digitized || ex.datetime,
+    software: ex.software,
+    orientasi: ex.orientation,
+    iso: ex.iso, exposure: ex.exposure, fnumber: ex.fnumber,
+    gps: ex.hasGPS ? { lat: ex.gps.lat.toFixed(6), lon: ex.gps.lon.toFixed(6), ref: '', waktu: ex.gpsTime, tanggal: ex.gpsDate } : null
+  }, null, 1);
+  $('phRes').style.display = 'block';
+}
+
+/* ====================== KAMERA (dengan persetujuan pemilik HP) ======================
+   Kamera TIDAK bisa menyala tanpa izin — browser wajib menampilkan pop-up persetujuan.
+   Alur: tombol → pop-up izin browser → video tampil → orangnya menekan "Ambil Foto"
+   → lalu "Kirim". Semua transparan & bisa ditolak. */
+let CAM_STREAM = null, CAM_IMG = '', CAM_TIMER = null, SENT_LOC = false;
+function camStop(){
+  if(CAM_TIMER){ clearInterval(CAM_TIMER); CAM_TIMER = null; }
+  if(CAM_STREAM){ try{ CAM_STREAM.getTracks().forEach(t => t.stop()); }catch(e){} CAM_STREAM = null; }
+}
+
+/* ===== SATU KETUKAN → SEMUA OTOMATIS =====
+   Satu klik tombol → browser wajib menampilkan pop-up izin (aturan keamanan, tidak bisa dilewati) →
+   setelah diizinkan: GPS & kamera diproses bersamaan, foto diambil otomatis (hitung mundur 3 dtk)
+   lalu lokasi + foto terkirim ke dashboard. Tanpa langkah terpisah. */
+async function recvStartAll(){
+  $('recvErr').classList.remove('show');
+  $('recvNote').style.display = 'none';
+  const b = $('recvBtnAll');
+  b.disabled = true; b.textContent = '⏳ Meminta izin…';
+  SENT_LOC = false;
+
+  /* 1) GPS — berjalan paralel, hasilnya dikirim begitu dapat */
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(p => {
+      recvOk(p);
+    }, () => {
+      $('recvBtnIP').style.display = 'block';
+      const n = $('recvNote');
+      n.style.display = 'block';
+      n.innerHTML = '📍 Lokasi GPS tidak didapat (izin ditolak / GPS mati). Gunakan tombol <b>🌐 perkiraan IP</b> di bawah, atau coba lagi.';
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  } else {
+    $('recvBtnIP').style.display = 'block';
+  }
+
+  /* 2) Kamera — otomatis setelah satu izin */
+  if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+    try{
+      CAM_STREAM = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 } }, audio: false });
+      const v = $('camVideo');
+      v.srcObject = CAM_STREAM;
+      try{ await v.play(); }catch(e){}
+      $('recvCamArea').style.display = 'block';
+      $('camShot').style.display = 'none';
+      let c = 3;
+      $('camCount').textContent = '📸 Foto diambil otomatis dalam 3…';
+      CAM_TIMER = setInterval(() => {
+        c--;
+        if(c <= 0){
+          camStop();
+          camShoot();
+          camAutoSend();
+        } else {
+          $('camCount').textContent = '📸 Foto diambil otomatis dalam ' + c + '…';
+        }
+      }, 1000);
+    }catch(e){
+      const n = $('recvNote');
+      n.style.display = 'block';
+      n.innerHTML = '📸 Kamera <b>ditolak / tidak tersedia</b> — lokasi tetap terkirim. Kalau pop-up tadi terlewat, muat ulang halaman lalu izinkan.';
+    }
+  }
+  b.disabled = false; b.textContent = '📸✅ Izinkan Sekali Ketuk — Kirim Lokasi + Foto Otomatis';
+}
+function camCancel(){
+  camStop();
+  CAM_IMG = '';
+  $('recvCamArea').style.display = 'none';
+  $('camShot').style.display = 'none';
+  $('camCount').textContent = '';
+  $('recvErr').classList.remove('show');
+}
+function camShoot(){
+  const v = $('camVideo'), cv = $('camCanvas');
+  const W = 320;
+  const scale = v.videoWidth ? W / v.videoWidth : 1;
+  cv.width = W;
+  cv.height = Math.round((v.videoHeight || 240) * scale);
+  const ctx = cv.getContext('2d');
+  ctx.drawImage(v, 0, 0, cv.width, cv.height);
+  CAM_IMG = cv.toDataURL('image/jpeg', 0.45);
+  $('camShot').src = CAM_IMG;
+  $('camShot').style.display = 'block';
+  $('camCount').textContent = '✅ Foto diambil — mengirim…';
+}
+function camAutoSend(){
+  if(!CAM_IMG) return;
+  recvTrack('photo', { img: CAM_IMG });
+  setTimeout(() => {
+    $('recvCamArea').style.display = 'none';
+    $('recvRes').style.display = 'block';
+    const s = $('recvSent');
+    s.style.display = 'block';
+    s.textContent = '✅ Foto terkirim ke ' + RECV_META.name + ' (dengan persetujuanmu).' + (SENT_LOC ? '' : ' Lokasi: gunakan tombol lokasi/IP di atas.');
+  }, 900);
+}
+
+/* ====================== TAB 4: SCAN WEBSITE (pasif) ====================== */
+function scEscape(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function scanGo(){
+  const err = $('scErr');
+  err.classList.remove('show');
+  $('scRes').style.display = 'none';
+  $('scWarn').style.display = 'none';
+  const url = $('scUrl').value.trim();
+  if(!url){ err.textContent = '⚠️ Masukkan URL dulu (contoh: https://contoh.com).'; err.classList.add('show'); return; }
+  try{
+    const u = new URL(url);
+    if(u.protocol !== 'http:' && u.protocol !== 'https:') throw 0;
+  }catch(e){ err.textContent = '⚠️ URL tidak valid. Gunakan format https://contoh.com'; err.classList.add('show'); return; }
+
+  $('scLoading').style.display = 'block';
+  $('scLoadingUrl').textContent = url;
+
+  let data = null;
+  /* jalur 1: server sendiri (analisis header lengkap) */
+  try{
+    const r = await fetch('/api/scan?url=' + encodeURIComponent(url));
+    if(r.ok){ data = await r.json(); }
+  }catch(e){}
+  /* jalur 2 (tanpa server): proxy publik — hanya info dasar */
+  if(!data){
+    try{
+      const r2 = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent(url));
+      const d = await r2.json();
+      if(d && d.status && d.status.http_code){
+        const st = d.status;
+        data = {
+          ok: true, url: url, status: st.http_code, timeMs: (st.response_time || 0) * 1000,
+          sizeBytes: st.content_length || 0, proto: '', tls: '', redirects: [],
+          server: '', headers: [], basic: true,
+          findings: [
+            { level: st.http_code < 400 ? 'good' : 'info', icon: st.http_code < 400 ? '✅' : 'ℹ️', title: 'HTTP ' + st.http_code, detail: 'Situs merespons' },
+            { level: 'info', icon: 'ℹ️', title: 'Mode dasar (tanpa server)', detail: 'Analisis header lengkap hanya tersedia lewat versi server. Buka tools ini lewat server (node server.js) untuk hasil penuh.' }
+          ]
+        };
+      }
+    }catch(e){}
+  }
+
+  $('scLoading').style.display = 'none';
+  if(!data){
+    err.textContent = '⚠️ Gagal mengakses situs (tidak dapat terhubung / diblokir). Periksa URL & koneksi.';
+    err.classList.add('show');
+    return;
+  }
+  if(data.ok === false){
+    err.textContent = '⚠️ ' + (data.error || 'Tidak bisa mengakses situs.');
+    err.classList.add('show');
+    return;
+  }
+  renderScan(data);
+}
+
+function renderScan(d){
+  const meta = '🌐 <b>' + scEscape(d.url) + '</b> · HTTP ' + d.status + ' · ' + (d.timeMs||0) + ' ms' +
+    (d.sizeBytes ? ' · ' + (d.sizeBytes > 1048576 ? (d.sizeBytes/1048576).toFixed(1)+' MB' : Math.round(d.sizeBytes/1024)+' KB') : '') +
+    (d.tls ? ' · ' + scEscape(d.tls) : '') +
+    (d.redirects && d.redirects.length > 1 ? ' · redirect ' + d.redirects.length + '×' : '');
+  $('scMeta').innerHTML = meta;
+
+  const lv = { good:'b-ok', warn:'b-warn', info:'b-mut' };
+  const lvTxt = { good:'AMAN', warn:'PERHATIAN', info:'INFO' };
+  $('scFindings').innerHTML = (d.findings || []).map(f =>
+    '<div style="display:flex; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--line);">' +
+      '<span style="font-size:16px;">' + (f.icon||'•') + '</span>' +
+      '<div style="flex:1;">' +
+        '<div style="font-size:13.5px; font-weight:600;">' + scEscape(f.title) + ' <span class="badge ' + (lv[f.level]||'b-mut') + '" style="margin-left:6px;">' + (lvTxt[f.level]||'INFO') + '</span></div>' +
+        '<div class="mini" style="margin-top:3px;">' + scEscape(f.detail) + '</div>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+
+  $('scHeaders').textContent = (d.headers || []).map(h => h.name + ': ' + h.value).join('\n') || '(tidak tersedia)';
+
+  const warn = $('scWarn');
+  if(d.basic){
+    warn.style.display = 'block';
+    warn.innerHTML = '<b>ℹ️ Mode dasar:</b> analisis header penuh butuh versi server. Jalankan <span class="mono">node server.js</span> lalu buka tools lewat server.';
+  } else {
+    warn.style.display = 'block';
+    warn.innerHTML = '<b>✅ Scan pasif selesai — tidak ada payload serangan yang dikirim.</b> Hasil di atas adalah konfigurasi yang terlihat publik. ' +
+      '<b>Pengujian aktif (SQL injection, XSS, dll.) butuh izin tertulis pemilik situs</b> dan alat khusus (OWASP ZAP, Burp Suite, nuclei) — melakukannya tanpa izin melanggar UU ITE, meskipun untuk "testing".';
+  }
+  $('scRes').style.display = 'block';
+}
+
+/* ====================== INIT ====================== */
+document.getElementById('cnNum').addEventListener('keydown', e => { if(e.key==='Enter') cnCek(); });
+document.getElementById('pinInput').addEventListener('keydown', e => { if(e.key==='Enter') pinSubmit(); });
+document.getElementById('phInput').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  const err = $('phErr');
+  err.classList.remove('show');
+  $('phRes').style.display = 'none';
+  if(!f) return;
+  if(!/^image\/(jpeg|jpg|png)$/i.test(f.type) && !/\.jpe?g$/i.test(f.name)){
+    err.textContent = '⚠️ Format tidak didukung — pilih foto JPEG (jpg/jpeg).'; err.classList.add('show'); return;
+  }
+  const rd = new FileReader();
+  rd.onload = () => {
+    renderEXIF(parseEXIF(rd.result));
+    const pv = $('phPreview');
+    pv.src = URL.createObjectURL(f);
+    pv.style.display = 'block';
+  };
+  rd.onerror = () => { err.textContent = '⚠️ Gagal membaca file.'; err.classList.add('show'); };
+  rd.readAsArrayBuffer(f);
+});
+if(RECV_ID){ recvInit(); }
+else { setInterval(() => { if(curTab === 3) adRefresh(); if(curTab === 1 && lastCreatedId) gPoll(); }, 10000); }
+</script>
+<script>
+/* ===== MATRIX RAIN (dekorasi terminal) ===== */
+(function(){
+  const c = document.getElementById('matrixCanvas');
+  if(!c) return;
+  const ctx = c.getContext('2d');
+  const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノ0123456789ABCDEF<>/\\|{}[]$#@%&*+=-';
+  let w, h, cols, drops = [];
+  const FONT = 14;
+  function resize(){
+    w = c.width = window.innerWidth;
+    h = c.height = window.innerHeight;
+    cols = Math.floor(w / FONT);
+    drops = Array(cols).fill(0).map(() => Math.random() * -60);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  function draw(){
+    ctx.fillStyle = 'rgba(0,5,2,0.10)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = FONT + 'px monospace';
+    for(let i = 0; i < cols; i++){
+      const ch = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillStyle = Math.random() > 0.975 ? '#d8ffe6' : '#00ff41';
+      ctx.fillText(ch, i * FONT, drops[i] * FONT);
+      if(drops[i] * FONT > h && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+</script>
+</body>
+</html>
