@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/lokasi", "destination": "/receiver.html" },
-    { "source": "/", "destination": "/index.html" }
-  ]
-}
