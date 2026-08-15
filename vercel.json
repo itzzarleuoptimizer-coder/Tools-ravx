@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/lokasi", "destination": "/receiver.html" },
+    { "source": "/", "destination": "/tools-lengkap.html" }
+  ]
+}
